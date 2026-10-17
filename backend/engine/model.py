@@ -20,6 +20,7 @@ class Flag(StrEnum):
     ESTIMATED_RATE = "estimated_rate"  # ticks assumed, not from the wiki
     NO_RATE = "no_rate"  # ticks unknown, so no GP/hr
     MISSING_PRICE = "missing_price"
+    IMPLAUSIBLE = "implausible"  # return so high it's likely a chance-based output or a bad price
 
 
 class Risk(StrEnum):
@@ -119,6 +120,9 @@ class Result:
     liquid: bool = True
     price_age: int | None = None  # seconds since the oldest price used last traded
     flags: set[Flag] = field(default_factory=set)
+    consistency: float | None = None  # share of the last 7 days' hours that were profitable
+    median_profit_7d: float | None = None
+    consistency_hours: int | None = None
 
     @property
     def ranked(self) -> bool:
@@ -207,6 +211,8 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
     result.profit = result.gross_revenue - result.tax - result.input_cost
     if result.input_cost > 0:
         result.roi = result.profit / result.input_cost
+        if result.roi > settings.implausible_roi:
+            result.flags.add(Flag.IMPLAUSIBLE)
     if result.gross_revenue > 0:
         result.breakeven_move = result.profit / result.gross_revenue
 

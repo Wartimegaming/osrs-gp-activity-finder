@@ -80,6 +80,9 @@ def result(r: Result, market: Market, settings: Settings) -> dict:
         "price_age": r.price_age,
         "flags": sorted(r.flags),
         "day_profit": r.day_profit,
+        "consistency": r.consistency,
+        "median_profit_7d": r.median_profit_7d,
+        "consistency_hours": r.consistency_hours,
         "caps": [{"limit": c.limit, "actions_per_hour": c.actions_per_hour, "item": c.item} for c in r.caps],
         "assumptions": {
             "price_mode": spec.price_mode or settings.price_mode,

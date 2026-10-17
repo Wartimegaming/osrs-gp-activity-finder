@@ -12,8 +12,8 @@ tag, price modes, auto-refresh and a hiscores level filter. Clicking a method op
 breakdown, what limits its rate, 7-day price and volume charts, and the assumptions behind it.
 Data lives in a local SQLite database (`data/osrs.db`) that the server keeps fresh.
 Phase 2 adds GE flipping (opt-in from the type filter), potion decanting, item set
-exchanges, and favourites and hidden methods. Next: Phase 3 (multi-step chains, shop
-arbitrage).
+exchanges, and favourites and hidden methods. Phase 3 adds NPC shop → GE resales, two-step
+chains (make the intermediate yourself) and a 7-day consistency score for every method.
 
 ## Quick start
 
@@ -49,10 +49,10 @@ uv run python -m backend rank              # top 25 by effective GP/hr
 ```
 
 `rank` options: `--mode instant|patient|average`, `--sort gp_hr|risk_adjusted`,
-`--type recipe|alch|decant|set|flip` (flips only when asked for), `--f2p`, `--max-risk low|medium|high`, `--include-illiquid`,
+`--type recipe|alch|decant|set|shop|chain|flip` (flips only when asked for), `--min-consistency 0.8`, `--f2p`, `--max-risk low|medium|high`, `--include-illiquid`,
 `--search TEXT`, `--top N`.
 
-Individual jobs: `ingest mapping | latest | hourly | recipes | sets`.
+Individual jobs: `ingest mapping | latest | hourly | recipes | sets | shops`.
 Set `OSRS_DB_PATH` to use a different database file.
 
 Recipe corrections (missing ticks, name aliases, exclusions) go in

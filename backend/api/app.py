@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import json
 import threading
 import time
 from pathlib import Path
@@ -11,7 +12,7 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend import config, db
@@ -31,18 +32,18 @@ class MarkUpdate(BaseModel):
 
 
 class ResultCache:
-    """Evaluated activities per price mode, rebuilt after any data refresh."""
+    """Evaluated activities per price mode as encoded JSON, rebuilt after any data refresh."""
 
     def __init__(self):
         self._lock = threading.Lock()
         self._version = 0
-        self._entries: dict[PriceMode, tuple[int, dict]] = {}
+        self._entries: dict[PriceMode, tuple[int, bytes]] = {}
 
     def invalidate(self, _job: str = "") -> None:
         with self._lock:
             self._version += 1
 
-    def get(self, mode: PriceMode) -> dict:
+    def get(self, mode: PriceMode) -> bytes:
         with self._lock:
             version = self._version
             entry = self._entries.get(mode)
@@ -54,7 +55,7 @@ class ResultCache:
         return payload
 
     @staticmethod
-    def _build(mode: PriceMode) -> dict:
+    def _build(mode: PriceMode) -> bytes:
         conn = db.connect()
         try:
             now = int(time.time())
@@ -64,7 +65,9 @@ class ResultCache:
         finally:
             conn.close()
         rows = [serialize.result(r, market, settings) for r in results if r.profit is not None and r.profit > 0]
-        return {"mode": mode, "generated_at": now, "count": len(rows), "activities": rows}
+        payload = {"mode": mode, "generated_at": now, "count": len(rows), "activities": rows}
+        # Encoded once per data refresh; several MB, so re-encoding per request would dominate.
+        return json.dumps(payload, separators=(",", ":"), allow_nan=False).encode()
 
 
 def create_app(run_scheduler: bool = True) -> FastAPI:
@@ -83,7 +86,7 @@ def create_app(run_scheduler: bool = True) -> FastAPI:
 
     @app.get("/api/activities")
     async def activities(mode: PriceMode = PriceMode.INSTANT):
-        return await asyncio.to_thread(cache.get, mode)
+        return Response(await asyncio.to_thread(cache.get, mode), media_type="application/json")
 
     @app.get("/api/status")
     def status():

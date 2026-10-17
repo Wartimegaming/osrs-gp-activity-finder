@@ -1,5 +1,5 @@
 export type PriceMode = 'instant' | 'patient' | 'average'
-export type ActivityType = 'recipe' | 'alch' | 'flip' | 'decant' | 'set'
+export type ActivityType = 'recipe' | 'alch' | 'flip' | 'decant' | 'set' | 'shop' | 'chain'
 export type Mark = 'favourite' | 'hidden'
 export type Marks = Record<string, Mark>
 export type Risk = 'low' | 'medium' | 'high'
@@ -11,6 +11,7 @@ export type Flag =
   | 'estimated_rate'
   | 'no_rate'
   | 'missing_price'
+  | 'implausible'
 
 export interface Leg {
   name: string
@@ -72,6 +73,9 @@ export interface Activity {
   price_age: number | null
   flags: Flag[]
   day_profit: number | null
+  consistency: number | null
+  median_profit_7d: number | null
+  consistency_hours: number | null
   caps: Cap[]
   assumptions: {
     price_mode: PriceMode

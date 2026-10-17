@@ -8,7 +8,7 @@ from collections import defaultdict
 from backend.engine import inventory
 from backend.engine.market import Market
 from backend.engine.model import ActivitySpec, Leg
-from backend.engine.settings import PriceMode, Settings
+from backend.engine.settings import TICKS_PER_HOUR, PriceMode, Settings
 from backend.ingest.recipes import Overrides
 
 
@@ -190,4 +190,73 @@ def set_specs(conn: sqlite3.Connection, market: Market) -> list[ActivitySpec]:
                                   variant="Combine pieces into the set", inputs=tuple(legs), outputs=whole, **common))
         specs.append(ActivitySpec(key=f"set:split:{set_id}", type="set", name=item.name,
                                   variant="Split the set into pieces", inputs=whole, outputs=tuple(legs), **common))
+    return specs
+
+
+def shop_units(price: int, value: int | None, delta: int, multiplier: int | None,
+               stock: int | None, ge_net: float, cap: int) -> tuple[int, float]:
+    """How many to buy per visit before the shop price stops being profitable, and their average cost.
+
+    Shop prices rise as stock falls: each item bought adds `delta`/1000 of the item's value.
+    """
+    limit = min(stock, cap) if stock is not None else cap
+    total, units = 0, 0
+    for k in range(limit):
+        if value and multiplier:
+            unit = max(price, math.floor(value * (multiplier + delta * k) / 1000))
+        else:
+            unit = price + math.floor((value or 0) * delta * k / 1000)
+        if unit >= ge_net:
+            break
+        total += unit
+        units += 1
+    return units, (total / units if units else 0.0)
+
+
+def shop_specs(conn: sqlite3.Connection, market: Market, settings: Settings,
+               overrides: Overrides | None = None) -> list[ActivitySpec]:
+    """Buy from an NPC shop, hopping worlds when the price climbs, and sell on the GE."""
+    from backend.engine.model import ge_tax, sell_price  # avoid a cycle at import time
+
+    overrides = overrides or Overrides.load()
+    values = {r["id"]: r["value"] for r in conn.execute("SELECT id, value FROM items")}
+    specs = []
+    for row in conn.execute("SELECT * FROM shop_items"):
+        item = market.get(row["item_id"])
+        if item is None or row["shop"] in overrides.shop_exclude or "reward" in row["shop"].lower():
+            continue
+        sell, _ = sell_price(item, settings.price_mode)
+        if not sell:
+            continue
+        ge_net = sell - ge_tax(sell, settings, item.id)
+        units, avg_cost = shop_units(row["price"], values.get(item.id), row["delta"], row["sell_multiplier"],
+                                     row["stock"], ge_net, settings.shop_unlimited_cap)
+        if units == 0:
+            continue
+        stackable = inventory.is_stackable(item.name, overrides.stackable_add, overrides.stackable_remove)
+        hops = row["stock"] is not None  # a limited stock means hopping worlds to buy more
+        if stackable:
+            per_cycle = units
+            cycle_ticks = (settings.shop_hop_ticks if hops else 0) + math.ceil(units / settings.shop_buy_per_tick)
+            how = f"Buy {units} per world" if hops else f"Buy in batches of {units}"
+        else:
+            per_cycle = min(units, inventory.INVENTORY_SLOTS - 1)  # one slot for coins
+            cycle_ticks = settings.shop_bank_ticks + (settings.shop_hop_ticks if hops else 0)
+            how = f"Buy {per_cycle} per inventory" + (", hopping worlds each trip" if hops else "")
+        rate = TICKS_PER_HOUR * per_cycle / max(1, cycle_ticks) * settings.efficiency
+        specs.append(ActivitySpec(
+            key=f"shop:{row['shop']}:{item.id}",
+            type="shop",
+            name=item.name,
+            variant=row["shop"],
+            wiki_page=row["shop"],
+            inputs=(Leg("Coins", None, avg_cost, "coins"),),
+            outputs=(Leg(item.name, item.id, 1),),
+            fixed_rate=rate,
+            ticks_estimated=True,
+            members=bool(row["members"]),
+            facilities=row["location"],
+            note=f"{how} (avg {avg_cost:,.0f} gp each before the price climbs too far)."
+                 + (f" Shop note: {row['notes'].strip('() ')}." if row["notes"] else ""),
+        ))
     return specs

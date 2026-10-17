@@ -33,10 +33,11 @@ time spent, constraints.
 | B | **Buy & high alch**: buy an item, cast High Level Alchemy | Rune items, battlestaves | MVP |
 | C | **GE flipping**: buy at the instant-sell price, sell at the instant-buy price | Any liquid item with a wide margin | Phase 2 ✓ |
 | D | **Zero-time conversions**: item sets, decanting | Armour sets ↔ pieces, potion (4) ↔ (3) | Phase 2 ✓ |
-| E | **Shop → GE arbitrage**: buy from an NPC shop, sell on the GE | Feathers, runes, seeds | Phase 3 (needs shop data) |
+| E | **Shop → GE arbitrage**: buy from an NPC shop, sell on the GE | Feathers, runes, seeds | Phase 3 ✓ |
+| F | **Two-step chains**: make an intermediate yourself instead of buying it | Sand → molten glass → orb | Phase 3 ✓ |
 
 Activities in a chain (e.g. sand + soda ash → molten glass → orb → battlestaff) are first
-evaluated one step at a time. Multi-step chains come in Phase 3.
+evaluated one step at a time, plus two-step chains where making the intermediate yourself pays (4.10).
 
 ## 3. Data Sources
 
@@ -87,7 +88,16 @@ The wiki has no structured data for set contents. Each set's page lists its piec
 "… set" is fetched in batches of 50 titles (3 requests) and parsed. Refreshed weekly.
 All 129 sets parsed and every piece matched a GE item (2026-10-17).
 
-### 3.4 Hiscores (MVP)
+### 3.4 NPC shops (Phase 3)
+
+`storeline` bucket (6,353 shop listings: item, price at full stock, stock, `store_delta` price
+change per item bought, multiplier) plus `infobox_shop` for locations. The bucket's
+`is_members_only` field is empty for every shop, so membership is read from each shop page's
+infobox (`members = Yes/No`) in batches of 50 titles. Only coin shops and GE-tradeable items are
+kept (~4,600 listings). Shops with "reward" in the name are skipped: some points shops are
+labelled "Coins" on the wiki. Refreshed weekly.
+
+### 3.5 Hiscores (MVP)
 
 `https://secure.runescape.com/m=hiscore_oldschool/index_lite.json?player=<name>` returns a
 player's skill levels as JSON (verified 2026-10-17). The user enters their name in the UI and
@@ -208,6 +218,25 @@ Stored in the local database (`user_marks`) so they survive browser data being c
 Hidden methods drop out of the table unless "Show hidden" is on; "Favourites only" narrows to
 starred methods.
 
+### 4.10 Phase 3 rules
+
+- **NPC shops**: shop prices rise by `delta`/1000 of the item's value for each item bought below
+  full stock. Each visit buys while the next unit still costs less than the GE sell price after
+  tax, up to the stock, then hops worlds. Stackable items: one visit per hop (~24 s).
+  Non-stackable: one inventory per bank trip (~60 s), plus a hop when stock is limited. Travel to
+  the shop isn't modelled, so every shop rate is flagged **estimated**. When several shops sell the
+  same item, only the best is listed (separately for members and F2P), with the others named
+  in its note.
+- **Two-step chains**: for a recipe that uses another recipe's output, the chain buys the first
+  step's inputs instead, and its rate adds both steps' times. A chain is listed only when it
+  beats both steps done alone, and only the best way to make each intermediate is kept.
+- **Consistency (7-day)**: each method is re-priced at every stored hourly snapshot using hourly
+  averages on the same side as the price mode. The score is the share of hours it was profitable
+  (needs ≥ 24 hours where every item traded), with the median profit alongside. "Consistent only"
+  keeps methods at ≥ 80%.
+- **Check flag**: returns above 5,000% are flagged. They're almost always a chance-based output the
+  wiki records as certain (e.g. squid beaks, now excluded in `overrides.toml`) or a bad price.
+
 ## 5. Web UI (localhost)
 
 ### 5.1 Main table: ranked activities
@@ -295,7 +324,7 @@ tests/
 | **M3: Web UI MVP** | Ranked table, filters, F2P tag, price mode, auto-refresh, hiscores lookup | Usable at `localhost:8000` |
 | **M4: Detail view** | Breakdown, charts, wiki links | Click-through works for every row |
 | **M5: Phase 2** | GE flipping, item sets/decanting, favourites | Done 2026-10-17 |
-| **M6: Phase 3** | Multi-step chains, shop arbitrage, historical "consistently profitable" score | |
+| **M6: Phase 3** | Multi-step chains, shop arbitrage, historical "consistently profitable" score | Done 2026-10-17 |
 
 ## 8. Risks
 

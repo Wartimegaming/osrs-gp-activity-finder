@@ -50,12 +50,18 @@ class Settings:
     low_volume_margin: float = 2.0  # flag "low volume" when below this × the threshold
     risk_roi_high: float = 0.02  # ROI under this is high risk
     risk_roi_medium: float = 0.05
+    implausible_roi: float = 50.0  # flag returns above 5,000%
     margin_spike_factor: float = 2.0  # profit above this × the 24h-average profit is a spike
     # High alchemy
     alch_ticks: int = 5
     alch_efficiency: float = 1.0  # no banking needed
     nature_rune_id: int = 561
     vial_id: int = 229  # empty vial, needed when decanting into more potions
+    # NPC shops (estimates: travel varies a lot by shop)
+    shop_hop_ticks: int = 40  # world hop, reopen the shop and buy, ~24 s per cycle
+    shop_bank_ticks: int = 100  # walk to a bank and back, ~60 s
+    shop_buy_per_tick: int = 50  # "Buy 50" clicks
+    shop_unlimited_cap: int = 1000  # units considered per visit when stock is unlimited
     extra: dict = field(default_factory=dict)
 
     def min_daily_volume(self, price: float) -> int:

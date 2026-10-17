@@ -9,12 +9,15 @@ export const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: 'alch', label: 'High alchemy' },
   { value: 'decant', label: 'Decanting' },
   { value: 'set', label: 'Item sets' },
+  { value: 'shop', label: 'NPC shops' },
+  { value: 'chain', label: 'Two-step chains' },
   { value: 'flip', label: 'Flipping' },
   { value: 'everything', label: 'Everything (incl. flipping)' },
 ]
 
 export const TYPE_LABEL: Record<ActivityType, string> = {
   recipe: 'Processing', alch: 'High alchemy', flip: 'GE flip', decant: 'Decanting', set: 'Item set',
+  shop: 'Shop', chain: 'Chain',
 }
 
 function typeMatches(filter: TypeFilter | 'all', type: ActivityType): boolean {
@@ -36,6 +39,7 @@ export interface Settings {
   playerName: string
   favouritesOnly: boolean
   showHidden: boolean
+  consistentOnly: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -51,7 +55,11 @@ export const DEFAULT_SETTINGS: Settings = {
   playerName: '',
   favouritesOnly: false,
   showHidden: false,
+  consistentOnly: false,
 }
+
+/** "Consistent only" keeps methods profitable in at least this share of last week's hours. */
+export const CONSISTENT_SHARE = 0.8
 
 const RISK_ORDER: Risk[] = ['low', 'medium', 'high']
 
@@ -72,6 +80,7 @@ export function applyFilters(activities: Activity[], s: Settings, player: Player
     if (a.gp_hr == null ? !s.showUnrated : a.gp_hr <= 0) return false
     if (!s.showIlliquid && !a.liquid) return false
     if (!typeMatches(s.type, a.type)) return false
+    if (s.consistentOnly && (a.consistency ?? 0) < CONSISTENT_SHARE) return false
     if (s.skill !== 'all' && !a.skills.some((k) => k.skill === s.skill)) return false
     if (s.f2pOnly && !a.f2p) return false
     if (a.risk && RISK_ORDER.indexOf(a.risk) > RISK_ORDER.indexOf(s.maxRisk)) return false

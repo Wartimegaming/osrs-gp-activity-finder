@@ -37,6 +37,10 @@ export default function FilterBar({ settings: s, skills, onChange, onReset }: Pr
         <input type="checkbox" checked={s.showUnrated} onChange={(e) => onChange({ showUnrated: e.target.checked })} />
         Show unrated
       </label>
+      <label className="check" title="Profitable in at least 80% of the last 7 days' hours">
+        <input type="checkbox" checked={s.consistentOnly} onChange={(e) => onChange({ consistentOnly: e.target.checked })} />
+        Consistent only
+      </label>
       <label className="check">
         <input type="checkbox" checked={s.favouritesOnly} onChange={(e) => onChange({ favouritesOnly: e.target.checked })} />
         Favourites only

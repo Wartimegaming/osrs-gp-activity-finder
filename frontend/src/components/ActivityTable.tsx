@@ -112,6 +112,21 @@ function columns(player: Player | null, marks: Marks, onMark: (key: string, mark
       id: 'capital', header: 'Capital/hr', ...nullsLast, cell: (c) => gp(c.getValue()),
       meta: { numeric: true, hint: 'GP spent on inputs per hour' },
     }),
+    col.accessor((a) => num(a.consistency), {
+      id: 'consistency', header: '7-day', ...nullsLast,
+      cell: (c) => {
+        const a = c.row.original
+        if (a.consistency == null) return <span className="muted" title="Not enough price history yet">–</span>
+        const tone = a.consistency >= 0.8 ? 'good' : a.consistency >= 0.5 ? 'warn' : 'bad'
+        return (
+          <span className={`consistency ${tone}`}
+            title={`Profitable in ${percent(a.consistency)} of ${a.consistency_hours} hours over the last 7 days; median profit ${gp(a.median_profit_7d)} each`}>
+            {percent(a.consistency)}
+          </span>
+        )
+      },
+      meta: { numeric: true, hint: 'Share of the last 7 days\' hours this method was profitable' },
+    }),
     col.accessor('risk', {
       header: 'Risk', sortUndefined: 'last',
       sortingFn: (a, b) => ['low', 'medium', 'high'].indexOf(a.original.risk ?? 'high') -

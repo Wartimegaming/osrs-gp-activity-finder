@@ -112,6 +112,8 @@ export default function DetailPanel({ activity: a, missing, player, onClose, mar
               <Stat label="Actions/hr" value={exact(a.effective_actions)} />
               <Stat label="ROI" value={percent(a.roi)} hint="Profit ÷ input cost" />
               <Stat label="Capital/hr" value={gp(a.capital_per_hour)} hint="GP spent on inputs per hour" />
+              <Stat label="Profitable, last 7 days" value={a.consistency == null ? '–' : `${percent(a.consistency)} of hours`}
+                hint={a.consistency_hours ? `${a.consistency_hours} hours with prices; median profit ${gp(a.median_profit_7d)} each` : 'Not enough price history yet'} />
             </section>
 
             <section className="detail-section">
@@ -201,7 +203,11 @@ export default function DetailPanel({ activity: a, missing, player, onClose, mar
                 <dd>
                   {a.type === 'flip' || a.type === 'decant' || a.type === 'set'
                     ? 'No skilling time: limited only by buy limits and how much the market trades.'
-                    : a.assumptions.fixed_rate != null
+                    : a.type === 'shop'
+                      ? `Estimated: ${exact(a.assumptions.fixed_rate)} bought per hour, allowing ~24 s per world hop and ~60 s per bank trip for items that don't stack. Travel to the shop isn't included.`
+                      : a.type === 'chain'
+                        ? `Estimated: ${exact(a.assumptions.fixed_rate)} per hour, adding the time for both steps.`
+                        : a.assumptions.fixed_rate != null
                     ? `${exact(a.assumptions.fixed_rate)} actions/hr, set in overrides.toml.`
                     : a.ticks == null
                       ? 'Unknown: the wiki has no tick count for this method.'

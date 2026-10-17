@@ -18,6 +18,11 @@
 # efficiency = 0.9
 # note = "Edgeville bank + furnace"
 
+[[recipe]]
+key = "Squid beak"
+exclude = true
+note = "The wiki lists 1 raw squid -> 1 beak, but beaks only come out some of the time."
+
 # Stackability is guessed from item names (runes, ammo, feathers, seeds, tablets...).
 # Correct the guess here; it decides how many actions fit in one inventory.
 [stackable]
@@ -28,4 +33,9 @@ remove = []
 # Family name = item name without the dose, e.g. "Prayer potion".
 [decant]
 include = ["Guthix rest"]
+exclude = []
+
+# NPC shops to ignore. Reward shops paid in points are sometimes labelled "Coins" on the
+# wiki; any shop with "reward" in its name is skipped automatically.
+[shops]
 exclude = []

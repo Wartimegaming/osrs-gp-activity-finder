@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from backend import db
-from backend.ingest import mapping, prices, recipes, sets
+from backend.ingest import mapping, prices, recipes, sets, shops
 
 log = logging.getLogger("scheduler")
 
@@ -31,6 +31,7 @@ JOBS = [
     Job("mapping", 24 * 3600, mapping.refresh),
     Job("recipes", 7 * 24 * 3600, recipes.refresh),
     Job("sets", 7 * 24 * 3600, sets.refresh),
+    Job("shops", 7 * 24 * 3600, shops.refresh),
     Job("latest", 60, prices.refresh_latest),
     Job("hourly", 15 * 60, prices.refresh_hourly),
 ]

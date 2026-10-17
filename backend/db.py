@@ -89,6 +89,22 @@ CREATE TABLE IF NOT EXISTS item_sets (
     PRIMARY KEY (set_id, position)
 );
 
+-- NPC shop stock that can be resold on the GE (coins shops, GE-tradeable items).
+CREATE TABLE IF NOT EXISTS shop_items (
+    shop          TEXT NOT NULL,
+    item_id       INTEGER NOT NULL,
+    item_name     TEXT NOT NULL,
+    price         INTEGER NOT NULL,  -- shop's selling price at full stock
+    stock         INTEGER,           -- default stock; NULL = unlimited
+    delta         INTEGER NOT NULL,  -- price change per item bought, per mille of item value
+    sell_multiplier INTEGER,         -- per mille of item value at full stock
+    restock_ticks INTEGER,
+    notes         TEXT,
+    members       INTEGER NOT NULL,
+    location      TEXT,
+    PRIMARY KEY (shop, item_id, price)
+);
+
 -- The user's favourites and hidden activities, keyed by activity key.
 CREATE TABLE IF NOT EXISTS user_marks (
     activity_key TEXT PRIMARY KEY,

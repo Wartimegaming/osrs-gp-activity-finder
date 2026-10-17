@@ -24,6 +24,7 @@ class Overrides:
     stackable_remove: set[str] = field(default_factory=set)
     decant_include: set[str] = field(default_factory=set)  # potion family names
     decant_exclude: set[str] = field(default_factory=set)
+    shop_exclude: set[str] = field(default_factory=set)  # shop names
 
     @classmethod
     def load(cls, path: Path = config.OVERRIDES_PATH) -> "Overrides":
@@ -36,6 +37,7 @@ class Overrides:
         return cls(
             decant_include=set(decant.get("include", [])),
             decant_exclude=set(decant.get("exclude", [])),
+            shop_exclude=set(raw.get("shops", {}).get("exclude", [])),
             aliases=raw.get("aliases", {}),
             recipes={r["key"]: r for r in raw.get("recipe", [])},
             stackable_add=set(stackable.get("add", [])),
