@@ -12,6 +12,7 @@ export type Flag =
   | 'no_rate'
   | 'missing_price'
   | 'implausible'
+  | 'slow_sell'
 
 export interface Leg {
   name: string
@@ -35,6 +36,7 @@ export interface Cap {
   limit: Limit
   actions_per_hour: number
   item: string | null
+  window_hours: number
 }
 
 export interface Activity {
@@ -78,6 +80,7 @@ export interface Activity {
   consistency: number | null
   median_profit_7d: number | null
   consistency_hours: number | null
+  sell_hours: number | null
   caps: Cap[]
   assumptions: {
     price_mode: PriceMode
@@ -86,6 +89,7 @@ export interface Activity {
     efficiency: number | null
     fixed_rate: number | null
     liquidity_share: number
+    sell_window_hours: number
     override_key: string | null
   }
 }
@@ -136,8 +140,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export const fetchActivities = (mode: PriceMode) =>
-  request<ActivitiesResponse>(`/api/activities?mode=${mode}`)
+export type SellHours = 1 | 4 | 12 | 24
+export const fetchActivities = (mode: PriceMode, sellHours: SellHours) =>
+  request<ActivitiesResponse>(`/api/activities?mode=${mode}&sell_hours=${sellHours}`)
 export const fetchStatus = () => request<Status>('/api/status')
 export const fetchPlayer = (name: string) =>
   request<Player>(`/api/hiscores?name=${encodeURIComponent(name)}`)

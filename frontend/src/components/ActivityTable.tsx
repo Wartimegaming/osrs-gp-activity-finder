@@ -165,9 +165,10 @@ interface Props {
   onSelect: (key: string) => void
   marks: Marks
   onMark: (key: string, mark: Mark | null) => void
+  updating: boolean // new settings are loading; the old rows are still shown
 }
 
-export default function ActivityTable({ activities, total, player, selected, onSelect, marks, onMark }: Props) {
+export default function ActivityTable({ activities, total, player, selected, onSelect, marks, onMark, updating }: Props) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'gp_hr', desc: true }])
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   // Filters can shrink the list under the current page; clamp instead of showing an empty page.
@@ -191,7 +192,7 @@ export default function ActivityTable({ activities, total, player, selected, onS
   }
 
   return (
-    <section className="table-card">
+    <section className={`table-card ${updating ? 'updating' : ''}`} aria-busy={updating}>
       <div className="table-scroll">
         <table>
           <thead>
@@ -239,7 +240,7 @@ export default function ActivityTable({ activities, total, player, selected, onS
         </table>
       </div>
       <footer className="table-footer">
-        <span className="muted">{activities.length} of {total} profitable methods</span>
+        <span className="muted">{updating ? 'Updating for the new settings…' : `${activities.length} of ${total} profitable methods`}</span>
         <div className="pager">
           <button className="button ghost" onClick={() => setPagination((p) => ({ ...p, pageIndex: page - 1 }))}
             disabled={page === 0}>Previous</button>

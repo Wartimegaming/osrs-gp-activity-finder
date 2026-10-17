@@ -1,4 +1,4 @@
-import type { Activity, ActivityType, Marks, Player, PriceMode, Risk } from './api'
+import type { Activity, ActivityType, Marks, Player, PriceMode, Risk, SellHours } from './api'
 
 /** 'active' is every method you play through; flipping is passive offer time, so it's opt-in. */
 export type TypeFilter = 'active' | 'everything' | ActivityType
@@ -28,6 +28,7 @@ function typeMatches(filter: TypeFilter | 'all', type: ActivityType): boolean {
 
 export interface Settings {
   mode: PriceMode
+  sellHours: SellHours
   search: string
   type: TypeFilter
   skill: string
@@ -44,6 +45,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   mode: 'instant',
+  sellHours: 1,
   search: '',
   type: 'active',
   skill: 'all',

@@ -19,9 +19,18 @@ export default function RateCaps({ caps, activity }: { caps: Cap[]; activity: Ac
     <>
     {volumeLeg && (
       <p className="cap-explain">
-        {volumeLeg.name} trades about {exact(volumeLeg.daily_volume / 24)} per hour on the GE. This is capped at{' '}
-        {percent(activity.assumptions.liquidity_share)} of that ({exact(applying.actions_per_hour)}/hr) so your own
-        trading doesn't move the price. Going faster is possible, but expect the margin to shrink.
+        {volumeLeg.name} trades about {exact(volumeLeg.daily_volume / 24)} per hour on the GE. Sales are capped at{' '}
+        {percent(activity.assumptions.liquidity_share)} of that
+        {applying.window_hours > 1 ? ` over ${applying.window_hours} hours` : ''} ({exact(applying.actions_per_hour)}/hr)
+        so your own trading doesn't move the price.
+        {applying.window_hours <= 1 && activity.assumptions.sell_window_hours <= 1 && ' Choose a longer "Sell within" window to spread sales out.'}
+        {applying.window_hours <= 1 && activity.assumptions.sell_window_hours > 1 &&
+          ' This method isn\'t steady enough to sell over a longer window (it needs to be profitable in 80% of last week\'s hours, with a margin wider than twice its normal price swing).'}
+      </p>
+    )}
+    {activity.sell_hours != null && activity.sell_hours > 1 && (
+      <p className="cap-explain">
+        One hour of output takes about {activity.sell_hours.toFixed(1)} hours to sell at this volume share.
       </p>
     )}
     {applying.limit === 'buy_limit' && (

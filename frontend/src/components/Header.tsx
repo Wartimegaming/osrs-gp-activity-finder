@@ -1,4 +1,4 @@
-import type { PriceMode, Status } from '../api'
+import type { PriceMode, SellHours, Status } from '../api'
 import { age } from '../format'
 
 const MODES: { value: PriceMode; label: string; hint: string }[] = [
@@ -7,15 +7,24 @@ const MODES: { value: PriceMode; label: string; hint: string }[] = [
   { value: 'average', label: '1h average', hint: 'Instant prices averaged over the last hour' },
 ]
 
+const SELL_HOURS: { value: SellHours; label: string }[] = [
+  { value: 1, label: 'Sell within 1 hour' },
+  { value: 4, label: 'Sell within 4 hours' },
+  { value: 12, label: 'Sell within 12 hours' },
+  { value: 24, label: 'Sell within 24 hours' },
+]
+
 interface Props {
   mode: PriceMode
   onModeChange: (mode: PriceMode) => void
+  sellHours: SellHours
+  onSellHoursChange: (hours: SellHours) => void
   status: Status | undefined
   refreshing: boolean
   onRefresh: () => void
 }
 
-export default function Header({ mode, onModeChange, status, refreshing, onRefresh }: Props) {
+export default function Header({ mode, onModeChange, sellHours, onSellHoursChange, status, refreshing, onRefresh }: Props) {
   const latest = status?.refreshed.latest
   const priceAge = status && latest ? status.now - latest : null
   const errors = status ? Object.entries(status.errors) : []
@@ -39,6 +48,11 @@ export default function Header({ mode, onModeChange, status, refreshing, onRefre
             </button>
           ))}
         </div>
+        <select value={sellHours} aria-label="Sell within"
+          title="How long you'll take to sell an hour's output. Longer windows only apply to steady-priced methods."
+          onChange={(e) => onSellHoursChange(Number(e.target.value) as SellHours)}>
+          {SELL_HOURS.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
+        </select>
         <div className="status">
           <span className={`dot ${priceAge != null && priceAge < 180 ? 'live' : 'stale'}`} />
           Prices {priceAge == null ? 'not loaded' : `${age(priceAge)} old`}

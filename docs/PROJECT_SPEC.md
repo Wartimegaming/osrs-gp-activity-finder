@@ -167,6 +167,15 @@ GP/hour is limited by whichever of these is smallest:
 
 There is no bankroll cap. Capital is used as a **risk** measure instead (Section 4.6).
 
+**Selling over time.** The "Sell within" setting (1, 4, 12 or 24 hours; default 1) lets one hour
+of output be sold across that window, so the selling cap becomes 10% of hourly volume × the
+window. It only applies when waiting is safe: the method was profitable in at least 80% of last
+week's hours **and** its margin is wider than twice the product's weekly price swing. Buying
+inputs always keeps the hourly cap, and flips never wait. Methods using the longer window are
+flagged "Sells over time", and the detail view says how long an hour's output takes to sell.
+Example: needles from a shop are capped at 141/hr with a 1-hour window, but at 24 hours the shop
+speed (317/hr at Dommik's) becomes the limit.
+
 ### 4.5 Volume filter (exclusion rule)
 
 An item that trades once a day is not a real money maker, even with a big margin. The
@@ -253,6 +262,10 @@ starred methods.
   averages on the same side as the price mode. The score is the share of hours it was profitable
   (needs ≥ 24 hours where every item traded), with the median profit alongside. "Consistent only"
   keeps methods at ≥ 80%.
+- **Shop-bought ingredients**: a recipe variant buys one ingredient from an NPC shop instead of
+  the GE, while the shop is cheaper than the GE price. The time to buy it (the same hop and bank
+  model as shop resales) is added to the recipe's time. A variant is listed only when it beats the
+  all-GE recipe, keeping the best shop per ingredient (the fastest 3 shops are evaluated).
 - **Check flag**: returns above 5,000% are flagged. They're almost always a chance-based output the
   wiki records as certain (e.g. squid beaks, now excluded in `overrides.toml`) or a bad price.
 

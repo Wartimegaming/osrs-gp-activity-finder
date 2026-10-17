@@ -215,6 +215,10 @@ export default function DetailPanel({ activity: a, missing, player, onClose, mar
                       ? `Estimated: ${exact(a.assumptions.fixed_rate)} bought per hour, allowing ~24 s per world hop and ~60 s per bank trip for items that don't stack. Travel to the shop isn't included.`
                       : a.type === 'chain'
                         ? `Estimated: ${exact(a.assumptions.fixed_rate)} per hour, adding the time for both steps.`
+                      : a.inputs.some((l) => l.kind === 'shop')
+                        ? `Estimated: ${exact(a.assumptions.fixed_rate)} per hour, including the time to buy ${
+                            a.inputs.filter((l) => l.kind === 'shop').map((l) => `${l.name} from ${l.source}`).join(', ')
+                          } (world hops and bank trips).`
                         : a.assumptions.fixed_rate != null
                     ? `${exact(a.assumptions.fixed_rate)} actions/hr, set in overrides.toml.`
                     : a.ticks == null

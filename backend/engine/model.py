@@ -21,6 +21,7 @@ class Flag(StrEnum):
     NO_RATE = "no_rate"  # ticks unknown, so no GP/hr
     MISSING_PRICE = "missing_price"
     IMPLAUSIBLE = "implausible"  # return so high it's likely a chance-based output or a bad price
+    SLOW_SELL = "slow_sell"  # an hour's output takes longer than an hour to sell at this volume
 
 
 class Risk(StrEnum):
@@ -96,6 +97,7 @@ class Cap:
     limit: Limit
     actions_per_hour: float
     item: str | None = None  # the item whose buy limit or volume sets this cap
+    window_hours: float = 1.0  # for selling caps: hours allowed to sell an hour's output
 
 
 @dataclass
@@ -128,6 +130,7 @@ class Result:
     consistency: float | None = None  # share of the last 7 days' hours that were profitable
     median_profit_7d: float | None = None
     consistency_hours: int | None = None
+    sell_hours: float | None = None  # hours needed to sell one hour's output at the volume share
 
     @property
     def ranked(self) -> bool:
@@ -163,7 +166,9 @@ def _day_price(item: ItemMarket, buying: bool, mode: PriceMode) -> float | None:
     return item.day_avg_high if use_high else item.day_avg_low
 
 
-def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
+def evaluate(spec: ActivitySpec, market: Market, settings: Settings, consistency: float | None = None) -> Result:
+    """`consistency` (share of last week's hours that were profitable) lets steady methods
+    spread their sales over `settings.sell_window_hours`."""
     mode = spec.price_mode or settings.price_mode
     inputs, outputs, trade_times = [], [], []
     day_cost = day_revenue = 0.0
@@ -256,12 +261,19 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
     for leg in inputs:
         if leg.kind == "item" and leg.buy_limit and leg.quantity > 0:
             caps.append(Cap(Limit.BUY_LIMIT, leg.buy_limit / BUY_LIMIT_WINDOW_HOURS / leg.quantity, leg.name))
+    window = _sell_window(spec, outputs, market, settings, consistency, result.breakeven_move)
+    # Buying can't wait (inputs are needed now); selling can be spread over the window.
+    # An item that's both bought and sold on the GE (a flip) keeps the hourly cap; buying it
+    # from a shop doesn't count, since that doesn't touch the GE market.
+    sold_only = {leg.item_id for leg in outputs} - {leg.item_id for leg in inputs if leg.kind == "item"}
     seen: set[int] = set()
     for leg in item_legs:
         if leg.quantity > 0 and leg.item_id not in seen:  # a flip buys and sells the same item
             seen.add(leg.item_id)
             hourly_volume = leg.daily_volume / 24
-            caps.append(Cap(Limit.LIQUIDITY, settings.liquidity_share * hourly_volume / leg.quantity, leg.name))
+            hours = window if leg.item_id in sold_only else 1.0
+            caps.append(Cap(Limit.LIQUIDITY, settings.liquidity_share * hourly_volume * hours / leg.quantity,
+                            leg.name, window_hours=hours))
     result.caps = caps
     if not caps:  # passive and nothing tradeable to limit it: can't rate it
         result.actions_per_hour = None
@@ -271,6 +283,15 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
     result.effective_actions, result.limiting_factor = binding.actions_per_hour, binding.limit
     if spec.passive:
         result.actions_per_hour = result.effective_actions
+
+    sell_hours = [
+        result.effective_actions * leg.quantity / (settings.liquidity_share * leg.daily_volume / 24)
+        for leg in outputs if leg.kind == "item" and leg.daily_volume > 0
+    ]
+    if sell_hours:
+        result.sell_hours = max(sell_hours)
+        if result.sell_hours > 1.0001:
+            result.flags.add(Flag.SLOW_SELL)
 
     result.gp_hr_raw = result.profit * result.actions_per_hour
     result.gp_hr = result.profit * result.effective_actions
@@ -285,6 +306,26 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
     if result.volatility and result.breakeven_move is not None and result.gp_hr > 0:
         result.gp_hr_risk_adjusted = result.gp_hr * max(0.0, min(1.0, result.breakeven_move / result.volatility))
     return result
+
+
+def _sell_window(spec: ActivitySpec, outputs: list[PricedLeg], market: Market, settings: Settings,
+                 consistency: float | None, breakeven_move: float | None) -> float:
+    """Hours allowed to sell an hour's output: the setting, but only when waiting is safe.
+
+    Safe means the method was profitable in most of last week's hours, and the margin is wide
+    enough that a normal week's price swing on the product wouldn't wipe it out.
+    """
+    if settings.sell_window_hours <= 1 or spec.type == "flip" or breakeven_move is None:
+        return 1.0
+    if consistency is None or consistency < settings.slow_sell_min_consistency:
+        return 1.0
+    for leg in outputs:
+        item = market.get(leg.item_id)
+        if item is None or item.volatility is None:
+            return 1.0
+        if breakeven_move < settings.slow_sell_margin_cover * item.volatility:
+            return 1.0
+    return settings.sell_window_hours
 
 
 def actions_per_hour(spec: ActivitySpec, settings: Settings) -> float | None:

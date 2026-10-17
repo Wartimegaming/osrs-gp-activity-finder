@@ -86,7 +86,9 @@ def result(r: Result, market: Market, settings: Settings) -> dict:
         "consistency": r.consistency,
         "median_profit_7d": r.median_profit_7d,
         "consistency_hours": r.consistency_hours,
-        "caps": [{"limit": c.limit, "actions_per_hour": c.actions_per_hour, "item": c.item} for c in r.caps],
+        "sell_hours": r.sell_hours,
+        "caps": [{"limit": c.limit, "actions_per_hour": c.actions_per_hour, "item": c.item, "window_hours": c.window_hours}
+                 for c in r.caps],
         "assumptions": {
             "price_mode": spec.price_mode or settings.price_mode,
             "ticks_estimated": spec.ticks_estimated,
@@ -94,6 +96,7 @@ def result(r: Result, market: Market, settings: Settings) -> dict:
             "efficiency": r.efficiency,
             "fixed_rate": spec.fixed_rate,
             "liquidity_share": settings.liquidity_share,
+            "sell_window_hours": settings.sell_window_hours,
             "override_key": spec.wiki_page if spec.type == "recipe" else None,
         },
     }

@@ -24,6 +24,7 @@ from backend.engine.settings import PriceMode, Settings
 from backend.ingest import icons, prices
 
 FRONTEND_DIST = config.ROOT / "frontend" / "dist"
+SELL_WINDOWS = {1, 4, 12, 24}  # hours; the choices offered in the UI
 
 
 class MarkUpdate(BaseModel):
@@ -37,35 +38,36 @@ class ResultCache:
     def __init__(self):
         self._lock = threading.Lock()
         self._version = 0
-        self._entries: dict[PriceMode, tuple[int, bytes]] = {}
+        self._entries: dict[tuple[PriceMode, int], tuple[int, bytes]] = {}
 
     def invalidate(self, _job: str = "") -> None:
         with self._lock:
             self._version += 1
 
-    def get(self, mode: PriceMode) -> bytes:
+    def get(self, mode: PriceMode, sell_hours: int = 1) -> bytes:
+        key = (mode, sell_hours)
         with self._lock:
             version = self._version
-            entry = self._entries.get(mode)
+            entry = self._entries.get(key)
             if entry and entry[0] == version:
                 return entry[1]
-        payload = self._build(mode)
+        payload = self._build(mode, sell_hours)
         with self._lock:
-            self._entries[mode] = (version, payload)
+            self._entries[key] = (version, payload)
         return payload
 
     @staticmethod
-    def _build(mode: PriceMode) -> bytes:
+    def _build(mode: PriceMode, sell_hours: int) -> bytes:
         conn = db.connect()
         try:
             now = int(time.time())
-            settings = Settings(price_mode=mode)
+            settings = Settings(price_mode=mode, sell_window_hours=sell_hours)
             market = market_mod.load(conn, now)
             results = evaluate_all(conn, settings, market=market)
         finally:
             conn.close()
         rows = [serialize.result(r, market, settings) for r in results if r.profit is not None and r.profit > 0]
-        payload = {"mode": mode, "generated_at": now, "count": len(rows), "activities": rows}
+        payload = {"mode": mode, "sell_hours": sell_hours, "generated_at": now, "count": len(rows), "activities": rows}
         # Encoded once per data refresh; several MB, so re-encoding per request would dominate.
         return json.dumps(payload, separators=(",", ":"), allow_nan=False).encode()
 
@@ -85,9 +87,11 @@ def create_app(run_scheduler: bool = True) -> FastAPI:
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     @app.get("/api/activities")
-    async def activities(mode: PriceMode = PriceMode.INSTANT):
+    async def activities(mode: PriceMode = PriceMode.INSTANT, sell_hours: int = 1):
+        if sell_hours not in SELL_WINDOWS:
+            raise HTTPException(422, f"sell_hours must be one of {sorted(SELL_WINDOWS)}")
         scheduler.touch()
-        return Response(await asyncio.to_thread(cache.get, mode), media_type="application/json")
+        return Response(await asyncio.to_thread(cache.get, mode, sell_hours), media_type="application/json")
 
     @app.get("/api/status")
     def status():

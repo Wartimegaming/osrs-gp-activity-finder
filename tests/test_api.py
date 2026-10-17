@@ -135,6 +135,13 @@ class ApiTest(unittest.TestCase):
             self.assertIn("max-age", response.headers["cache-control"])
         self.assertEqual(self.client.get("/icons/424242.png").status_code, 404)
 
+    def test_sell_hours_param(self):
+        body = self.client.get("/api/activities?sell_hours=24").json()
+        self.assertEqual(body["sell_hours"], 24)
+        orb = next(a for a in body["activities"] if a["name"] == "Unpowered orb" and a["type"] == "recipe")
+        self.assertEqual(orb["assumptions"]["sell_window_hours"], 24)
+        self.assertEqual(self.client.get("/api/activities?sell_hours=5").status_code, 422)
+
     def test_bad_mode(self):
         self.assertEqual(self.client.get("/api/activities?mode=greedy").status_code, 422)
 

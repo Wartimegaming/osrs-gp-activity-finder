@@ -8,5 +8,6 @@ export const FLAGS: Record<Flag, { label: string; hint: string; tone: 'warn' | '
   estimated_rate: { label: 'Est. rate', hint: 'Speed is an estimate; open the method to see the assumptions', tone: 'info' },
   no_rate: { label: 'No rate', hint: 'No reliable actions/hour; add an override to rank it', tone: 'info' },
   missing_price: { label: 'No price', hint: 'An item has no recent price', tone: 'bad' },
+  slow_sell: { label: 'Sells over time', hint: 'Steady price: one hour of output is sold over several hours, within your "sell within" window', tone: 'info' },
   implausible: { label: 'Check', hint: 'Return over 5,000%: usually a chance-based output in the wiki data or a bad price', tone: 'bad' },
 }

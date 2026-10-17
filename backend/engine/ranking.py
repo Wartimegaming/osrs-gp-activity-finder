@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, replace
 from enum import StrEnum
 
-from backend.engine import activities, chains, history, market as market_mod
+from backend.engine import activities, chains, history, market as market_mod, supply
 from backend.engine.model import Result, Risk, evaluate
 from backend.engine.settings import Settings
 from backend.ingest.recipes import Overrides
@@ -53,12 +53,15 @@ def evaluate_all(
         + activities.set_specs(conn, market)
         + activities.shop_specs(conn, market, settings, overrides)
     )
-    results = [evaluate(spec, market, settings) for spec in specs]
-    results = _best_shop_per_item(results)
+    # Consistency comes first: steady methods may spread their sales over the sell window.
+    def run(batch: list) -> list[Result]:
+        scores = history.CACHE.scores(conn, batch, settings)
+        return [evaluate(s, market, settings, getattr(scores.get(s.key), "share", None)) for s in batch]
 
+    results = _best_shop_per_item(run(specs))
     by_key = {r.spec.key: r for r in results}
-    chain_results = [evaluate(spec, market, settings) for spec in chains.build(results, settings)]
-    results += chains.keep_worthwhile(chain_results, by_key)
+    results += chains.keep_worthwhile(run(chains.build(results, settings)), by_key)
+    results += supply.keep_worthwhile(run(supply.build(results, conn, market, settings, overrides)), by_key)
 
     scores = history.CACHE.scores(conn, [r.spec for r in results], settings)
     for r in results:

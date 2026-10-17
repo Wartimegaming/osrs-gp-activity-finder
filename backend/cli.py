@@ -80,7 +80,7 @@ def _gp(value: float | None) -> str:
 
 
 def cmd_rank(conn, args) -> None:
-    settings = Settings(price_mode=PriceMode(args.mode))
+    settings = Settings(price_mode=PriceMode(args.mode), sell_window_hours=args.sell_hours)
     filters = Filters(
         # Flipping is passive GE-offer time, not comparable with active methods: opt in with --type flip.
         types=frozenset(args.type or ("recipe", "alch", "decant", "set", "shop", "chain")),
@@ -141,6 +141,8 @@ def main(argv: list[str] | None = None) -> None:
     ranking.add_argument("--top", type=int, default=25)
     ranking.add_argument("--mode", choices=[m.value for m in PriceMode], default="instant")
     ranking.add_argument("--sort", choices=[k.value for k in SortKey], default="gp_hr")
+    ranking.add_argument("--sell-hours", type=int, choices=[1, 4, 12, 24], default=1,
+                         help="hours you'll take to sell an hour's output (steady-priced methods only)")
     ranking.add_argument("--type", action="append", choices=["recipe", "alch", "flip", "decant", "set", "shop", "chain"])
     ranking.add_argument("--min-consistency", type=float, metavar="SHARE",
                          help="only methods profitable in at least this share of last week's hours, e.g. 0.8")

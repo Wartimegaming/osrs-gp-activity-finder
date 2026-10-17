@@ -17,8 +17,8 @@ export default function App() {
   const queryClient = useQueryClient()
 
   const activities = useQuery({
-    queryKey: ['activities', settings.mode],
-    queryFn: () => fetchActivities(settings.mode),
+    queryKey: ['activities', settings.mode, settings.sellHours],
+    queryFn: () => fetchActivities(settings.mode, settings.sellHours),
     refetchInterval: 60_000,
     placeholderData: (previous) => previous,
   })
@@ -68,6 +68,8 @@ export default function App() {
       <Header
         mode={settings.mode}
         onModeChange={(mode) => update({ mode })}
+        sellHours={settings.sellHours}
+        onSellHoursChange={(sellHours) => update({ sellHours })}
         status={status.data}
         refreshing={refresh.isPending || activities.isFetching}
         onRefresh={() => refresh.mutate()}
@@ -84,13 +86,14 @@ export default function App() {
           onOnlyDoableChange={(onlyDoable) => update({ onlyDoable })}
         />
         <FilterBar settings={settings} skills={skills} onChange={update} onReset={() =>
-          update({ ...DEFAULT_SETTINGS, mode: settings.mode, playerName: settings.playerName })} />
+          update({ ...DEFAULT_SETTINGS, mode: settings.mode, sellHours: settings.sellHours, playerName: settings.playerName })} />
         {activities.isError && <div className="banner error">Couldn't load activities: {activities.error.message}</div>}
         {activities.isPending ? (
           <div className="empty">Loading activities…</div>
         ) : (
           <ActivityTable activities={visible} total={all.length} player={playerData}
-            selected={selectedKey} onSelect={openDetail} marks={marks} onMark={setMark} />
+            selected={selectedKey} onSelect={openDetail} marks={marks} onMark={setMark}
+            updating={activities.isPlaceholderData && activities.isFetching} />
         )}
       </main>
       {selectedKey && (

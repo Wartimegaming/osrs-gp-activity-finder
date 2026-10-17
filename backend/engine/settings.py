@@ -38,6 +38,11 @@ class Settings:
     # Skills whose real rate is set by travel, not ticks: unranked unless overridden.
     travel_skills: frozenset[str] = frozenset({"Runecraft"})
     liquidity_share: float = 0.10  # most of an item's hourly volume we expect to trade
+    # Hours you're willing to take to sell one hour's output. Above 1, sales of steady-priced
+    # items may be spread over this window instead of being capped to what sells in an hour.
+    sell_window_hours: float = 1.0
+    slow_sell_min_consistency: float = 0.8  # profitable in at least this share of last week's hours
+    slow_sell_margin_cover: float = 2.0  # and the margin covers this many times the product's weekly price swing
     stale_minutes: int = 30
     tax: TaxRule = TaxRule()
     # Checked against each item's own price; highest matching tier wins.
