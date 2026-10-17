@@ -23,6 +23,8 @@ UNUSUAL_MARGIN = 2.5  # current margin over this × the week's median margin is 
 STEADY = 0.8  # margin existed in at least this share of last week's hours
 NEAR_LOW, NEAR_HIGH = 0.2, 0.8  # position of today's price within the 7-day range
 TREND = 0.03  # 24h average this far from the 7-day average counts as a trend
+MARKET_ITEMS_MIN_VOLUME = 500  # items used to judge the market as a whole
+BROAD_DIP_SHARE = 0.3  # this share of items near their lows (vs ~20% normally) is a market-wide dip
 ONE_SIDED = 3.0  # one side trading this many times faster than the other
 
 
@@ -61,6 +63,7 @@ class Candidate:
     week_avg: float | None = None
     position: float | None = None  # 0 = at the 7-day low, 1 = at the 7-day high
     trend_24h: float | None = None  # 24h average vs 7-day average
+    trend_vs_market: float | None = None  # trend_24h minus the median item's trend
     margin_steady: float | None = None  # share of last week's hours with a positive margin
     median_margin: float | None = None
     signals: list[Signal] = field(default_factory=list)
@@ -83,7 +86,11 @@ def _week(item_id: int, series: Series, settings: Settings) -> dict:
     ordered = sorted(mids)
     newest = sorted(hours)[-24:]
     day = [(h + l) / 2 for ts in newest for h, l in [hours[ts]] if h is not None and l is not None]
+    last_high, last_low = hours[newest[-1]]
     return {
+        # The latest hour's average, compared with other hourly averages. A single live trade
+        # would be compared unfairly: averages never reach the extremes single trades hit.
+        "latest": (last_high + last_low) / 2 if last_high and last_low else (last_high or last_low),
         "week_low": ordered[0],
         "week_high": ordered[-1],
         "week_avg": statistics.fmean(mids),
@@ -94,7 +101,50 @@ def _week(item_id: int, series: Series, settings: Settings) -> dict:
     }
 
 
-def analyse(item: ItemMarket, market: Market, series: Series, settings: Settings) -> Candidate | None:
+def _percentile(ordered: list[float], value: float) -> float:
+    """Where `value` sits among `ordered` (0 = lowest, 1 = highest). Ties count as halfway, so a
+    flat week puts the price mid-range rather than "at the low"."""
+    return (bisect.bisect_left(ordered, value) + bisect.bisect_right(ordered, value)) / 2 / len(ordered)
+
+
+@dataclass
+class MarketSummary:
+    """How the GE as a whole moved this week, so single-item signals can be read in context."""
+    items: int  # liquid items with a week of history
+    median_trend: float  # median item's last-24h average vs its 7-day average
+    near_low_share: float  # share of items in the bottom fifth of their weekly range (~20% normally)
+    near_high_share: float
+
+    @property
+    def broad_dip(self) -> bool:
+        return self.near_low_share >= BROAD_DIP_SHARE
+
+    def to_dict(self) -> dict:
+        return {**asdict(self), "broad_dip": self.broad_dip}
+
+
+def market_summary(market: Market, series: Series, settings: Settings) -> MarketSummary | None:
+    trends, positions = [], []
+    for item in market.items.values():
+        if item.daily_volume < MARKET_ITEMS_MIN_VOLUME:
+            continue
+        week = _week(item.id, series, settings)
+        if not week or week["day_avg"] is None or not week["latest"]:
+            continue
+        trends.append(week["day_avg"] / week["week_avg"] - 1)
+        positions.append(_percentile(week["ordered"], week["latest"]))
+    if not trends:
+        return None
+    return MarketSummary(
+        items=len(trends),
+        median_trend=statistics.median(trends),
+        near_low_share=sum(p <= NEAR_LOW for p in positions) / len(positions),
+        near_high_share=sum(p >= NEAR_HIGH for p in positions) / len(positions),
+    )
+
+
+def analyse(item: ItemMarket, market: Market, series: Series, settings: Settings,
+            summary: MarketSummary | None = None) -> Candidate | None:
     if item.high is None or item.low is None or item.daily_volume < MIN_DAILY_VOLUME:
         return None
     tax = ge_tax(item.high, settings, item.id)
@@ -129,16 +179,14 @@ def analyse(item: ItemMarket, market: Market, series: Series, settings: Settings
     week = _week(item.id, series, settings)
     if week:
         c.week_low, c.week_high, c.week_avg = week["week_low"], week["week_high"], week["week_avg"]
-        mid = (item.high + item.low) / 2
-        # Percentile of today's price among the week's hourly prices; ties count as halfway, so a
-        # flat week puts today mid-range rather than "at the low".
-        ordered = week["ordered"]
-        c.position = (bisect.bisect_left(ordered, mid) + bisect.bisect_right(ordered, mid)) / 2 / len(ordered)
+        c.position = _percentile(week["ordered"], week["latest"])
         if week["day_avg"] is not None:
             c.trend_24h = week["day_avg"] / week["week_avg"] - 1
+            if summary is not None:
+                c.trend_vs_market = c.trend_24h - summary.median_trend
         c.margin_steady, c.median_margin = week["margin_steady"], week["median_margin"]
 
-    _signals(c, settings)
+    _signals(c, settings, summary)
     return c
 
 
@@ -147,7 +195,7 @@ def _buyers_daily(item: ItemMarket) -> int:
     return item.daily_buy_volume if item.daily_buy_volume is not None else item.daily_volume // 2
 
 
-def _signals(c: Candidate, settings: Settings) -> None:
+def _signals(c: Candidate, settings: Settings, summary: MarketSummary | None = None) -> None:
     s = c.signals
     stale_after = settings.stale_minutes * 60
     fresh = all(age is not None and age <= stale_after for age in (c.buy_age, c.sell_age))
@@ -186,8 +234,13 @@ def _signals(c: Candidate, settings: Settings) -> None:
     if unusual:
         s.append(Signal("unusual", "Unusually wide", "warn",
                         f"Today's margin is {c.margin / c.median_margin:.1f}× the week's typical {c.median_margin:,.0f} gp; it may close quickly."))
+    broad_dip = summary is not None and summary.broad_dip
     if c.position is not None:
-        if c.position <= NEAR_LOW:
+        if c.position <= NEAR_LOW and broad_dip:
+            s.append(Signal("low", "Near 7-day low", "good",
+                            f"In the bottom fifth of its weekly range, but so are {summary.near_low_share:.0%} of items: "
+                            "this is mostly a market-wide dip, not a bargain on this item alone."))
+        elif c.position <= NEAR_LOW:
             s.append(Signal("low", "Near 7-day low", "good",
                             "The price is in the bottom fifth of its weekly range: a good time to buy."))
         elif c.position >= NEAR_HIGH:
@@ -204,8 +257,8 @@ def _signals(c: Candidate, settings: Settings) -> None:
     steady = c.margin_steady if c.margin_steady is not None else 0.5
     weight = (steady * (1 if fresh else 0.3) * (0.5 if unusual else 1) * (0.6 if slower < THIN_SIDE_PER_HOUR else 1)
               * min(1.0, c.roi / THIN_MARGIN))
-    if c.position is not None and c.position <= NEAR_LOW:
-        weight *= 1.1
+    if c.position is not None and c.position <= NEAR_LOW and not broad_dip:
+        weight *= 1.1  # a dip on this item alone, not just the market sliding
     c.adjusted_profit = c.profit_per_window * weight
     if fresh and steady >= STEADY and slower >= 20 and not unusual:
         c.confidence = "high"
@@ -215,6 +268,7 @@ def _signals(c: Candidate, settings: Settings) -> None:
         c.confidence = "medium"
 
 
-def candidates(market: Market, series: Series, settings: Settings) -> list[Candidate]:
-    found = [analyse(item, market, series, settings) for item in market.items.values()]
+def candidates(market: Market, series: Series, settings: Settings,
+               summary: MarketSummary | None = None) -> list[Candidate]:
+    found = [analyse(item, market, series, settings, summary) for item in market.items.values()]
     return sorted((c for c in found if c is not None), key=lambda c: c.adjusted_profit, reverse=True)

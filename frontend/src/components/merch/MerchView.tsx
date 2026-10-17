@@ -4,7 +4,7 @@ import {
 } from '@tanstack/react-table'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import { fetchMerch, type MerchItem } from '../../api'
+import { fetchMerch, type MarketSummary, type MerchItem } from '../../api'
 import { parseAmount } from '../../filters'
 import { age, exact, gp, percent } from '../../format'
 import { usePersistentState } from '../../usePersistentState'
@@ -134,6 +134,17 @@ const COLUMNS = [
   col.accessor('adjusted_profit', { id: 'adjusted_profit', header: 'Score', ...desc }),
 ]
 
+function MarketBanner({ market: m }: { market: MarketSummary }) {
+  const direction = Math.abs(m.median_trend) < 0.005 ? 'flat' : m.median_trend < 0 ? 'down' : 'up'
+  return (
+    <div className={`market-banner ${m.broad_dip ? 'warn' : ''}`} role="status">
+      <b>The market this week:</b> the typical item is {direction === 'flat' ? 'roughly flat' : `${direction} ${percent(Math.abs(m.median_trend))}`}{' '}
+      against its 7-day average, and {percent(m.near_low_share)} of items are near their weekly low (about 20% is normal).
+      {m.broad_dip && ' That\'s a market-wide dip: an item at its low may just be following the market, not a bargain on its own.'}
+    </div>
+  )
+}
+
 export default function MerchView({ itemId }: { itemId: number | null }) {
   const [filters, setFilters] = usePersistentState<MerchFilters>('gp-finder:merch-filters', DEFAULTS)
   const set = (patch: Partial<MerchFilters>) => setFilters((f) => ({ ...f, ...patch }))
@@ -195,6 +206,7 @@ export default function MerchView({ itemId }: { itemId: number | null }) {
           onChange={(e) => set({ f2pOnly: e.target.checked })} />F2P only</label>
         <button className="button ghost" onClick={() => setFilters(DEFAULTS)}>Reset</button>
       </section>
+      {query.data?.market && <MarketBanner market={query.data.market} />}
       {query.isError && <div className="banner error">Couldn't load merchanting data: {query.error.message}</div>}
       {query.isPending ? <div className="empty">Loading…</div> : visible.length === 0 ? (
         <div className="empty">No flips match these filters ({all.length} with a margin in total).</div>

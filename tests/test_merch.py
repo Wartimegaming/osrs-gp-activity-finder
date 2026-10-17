@@ -120,3 +120,33 @@ class RankingTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MarketContextTest(unittest.TestCase):
+    def test_position_uses_latest_hour_not_a_single_trade(self):
+        # A flat week; one live trade far below it shouldn't make the item look "at its low".
+        c = analyse(replace(BASE, low=60, high=110), steady_week(1))
+        self.assertAlmostEqual(c.position, 0.5)
+        self.assertNotIn("low", labels(c))
+
+    def summary(self, near_low_share):
+        return merch.MarketSummary(items=100, median_trend=-0.02, near_low_share=near_low_share, near_high_share=0.1)
+
+    def test_broad_dip_softens_the_low_signal(self):
+        series = steady_week(1, high=280, low=270, step=-1)
+        it = replace(BASE, high=112, low=102)
+        alone = merch.analyse(it, market(it), series, S, self.summary(0.2))
+        broad = merch.analyse(it, market(it), series, S, self.summary(0.45))
+        self.assertIn("so are 45% of items", next(s.detail for s in broad.signals if s.key == "low"))
+        self.assertGreater(alone.adjusted_profit, broad.adjusted_profit)  # no dip bonus in a broad dip
+        self.assertAlmostEqual(broad.trend_vs_market, broad.trend_24h + 0.02)
+
+    def test_market_summary(self):
+        falling = steady_week(1, high=280, low=270, step=-1)
+        flat = steady_week(2)
+        it1 = replace(BASE, daily_volume=24_000)
+        it2 = replace(BASE, id=2, name="Flat")
+        summary = merch.market_summary(market(it1, it2), {**falling, **flat}, S)
+        self.assertEqual(summary.items, 2)
+        self.assertAlmostEqual(summary.near_low_share, 0.5)
+        self.assertTrue(summary.broad_dip)  # half the market at its low is well above the ~20% norm

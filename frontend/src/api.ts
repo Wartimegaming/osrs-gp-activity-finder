@@ -182,12 +182,22 @@ export interface MerchItem {
   week_avg: number | null
   position: number | null
   trend_24h: number | null
+  trend_vs_market: number | null
   margin_steady: number | null
   median_margin: number | null
   signals: MerchSignal[]
 }
 
-export const fetchMerch = () => request<{ generated_at: number; count: number; items: MerchItem[] }>('/api/merch')
+export interface MarketSummary {
+  items: number
+  median_trend: number
+  near_low_share: number
+  near_high_share: number
+  broad_dip: boolean
+}
+
+export const fetchMerch = () =>
+  request<{ generated_at: number; count: number; items: MerchItem[]; market: MarketSummary | null }>('/api/merch')
 export const fetchPlayer = (name: string) =>
   request<Player>(`/api/hiscores?name=${encodeURIComponent(name)}`)
 export const fetchHistory = (itemId: number, hours = 168) =>

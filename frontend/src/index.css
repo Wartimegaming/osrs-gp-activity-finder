@@ -368,3 +368,8 @@ tr.hidden-row td { opacity: 0.45; }
 /* Long subtitles (chains, shops) wrap instead of widening the whole table. */
 .methods-table td:first-child { white-space: normal; }
 .methods-table .activity { min-width: 0; width: 228px; }
+.market-banner {
+  margin-bottom: 10px; padding: 9px 12px; border-radius: 10px; font-size: 13px;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.market-banner.warn { background: var(--warn-soft); border-color: transparent; color: var(--text); }

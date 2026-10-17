@@ -317,6 +317,14 @@ For every item with a margin after tax and at least ~24 trades a day:
   unreliable (< 50%) margin; unusually wide (≥ 2.5× the week's median margin, may close);
   near the 7-day low or high (bottom / top fifth of the week's hourly prices); rising or falling
   (24h average ≥ 3% from the 7-day average); stale quote (either side older than 30 minutes).
+- **Like-for-like position**: "near the 7-day low/high" compares the **latest hourly average**
+  with the week's hourly averages. Comparing a single live trade with averages over-reported lows
+  (34% of items instead of ~28% when checked on 2026-10-17), because averages never reach the
+  extremes single trades hit. Live prices are still used for the margin.
+- **Market context**: a banner shows the median item's 24h trend against its week and the share
+  of items near their weekly low (~20% is normal). At 30% or more it's treated as a market-wide
+  dip: the "near 7-day low" signal says so and loses its ranking bonus, and each item's trend is
+  also shown relative to the market.
 - **Confidence**: high when quotes are fresh, the margin held in ≥ 80% of hours, both sides trade
   ≥ 20 an hour and the margin isn't unusually wide; low when stale, unreliable or thin.
 - **Ranking**: profit per window × margin reliability × freshness (× 0.3 if stale) ×

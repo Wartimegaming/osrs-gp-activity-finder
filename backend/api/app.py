@@ -70,8 +70,11 @@ class ResultCache:
             _, series = history.load_series(conn)
         finally:
             conn.close()
-        rows = [c.to_dict() for c in merch.candidates(market, series, Settings())]
-        return json.dumps({"generated_at": now, "count": len(rows), "items": rows},
+        settings = Settings()
+        summary = merch.market_summary(market, series, settings)
+        rows = [c.to_dict() for c in merch.candidates(market, series, settings, summary)]
+        return json.dumps({"generated_at": now, "count": len(rows), "items": rows,
+                           "market": summary.to_dict() if summary else None},
                           separators=(",", ":"), allow_nan=False).encode()
 
     @staticmethod

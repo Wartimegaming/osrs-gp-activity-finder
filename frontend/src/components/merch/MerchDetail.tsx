@@ -96,12 +96,14 @@ export default function MerchDetail({ item: m, missing, onClose }: { item: Merch
               <dl className="assumptions">
                 <dt>Range</dt>
                 <dd>{m.week_low != null ? `${exact(m.week_low)} – ${exact(m.week_high)} (average ${exact(m.week_avg)})` : 'Not enough history yet'}</dd>
-                <dt>Now</dt>
+                <dt>Latest hour</dt>
                 <dd>{m.position == null ? '–'
                   : m.week_low != null && (m.buy_price + m.sell_price) / 2 < m.week_low ? "Below the week's lowest hourly average"
                   : `${percent(m.position)} of the way from the week's low to its high`}</dd>
                 <dt>24h trend</dt>
-                <dd>{m.trend_24h != null ? `${m.trend_24h >= 0 ? '+' : ''}${percent(m.trend_24h)} against the week's average` : '–'}</dd>
+                <dd>{m.trend_24h == null ? '–' : `${m.trend_24h >= 0 ? '+' : ''}${percent(m.trend_24h)} against the week's average`
+                  + (m.trend_vs_market == null ? ''
+                    : ` (${Math.abs(m.trend_vs_market) < 0.005 ? 'in line with the market' : `${percent(Math.abs(m.trend_vs_market))} ${m.trend_vs_market < 0 ? 'weaker' : 'stronger'} than the market`})`)}</dd>
                 <dt>Margin</dt>
                 <dd>{m.margin_steady != null
                   ? `Positive in ${percent(m.margin_steady)} of hours; typically ${exact(m.median_margin)} gp after tax`
