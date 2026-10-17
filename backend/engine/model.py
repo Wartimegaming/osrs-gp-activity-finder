@@ -82,6 +82,14 @@ class PricedLeg:
         return None if self.price is None else self.price * self.quantity
 
 
+@dataclass(frozen=True)
+class Cap:
+    """One limit on actions/hour; the smallest one wins."""
+    limit: Limit
+    actions_per_hour: float
+    item: str | None = None  # the item whose buy limit or volume sets this cap
+
+
 @dataclass
 class Result:
     spec: ActivitySpec
@@ -95,6 +103,9 @@ class Result:
     actions_per_hour: float | None = None  # speed only
     effective_actions: float | None = None  # after buy-limit and liquidity caps
     limiting_factor: Limit | None = None
+    caps: list[Cap] = field(default_factory=list)
+    day_profit: float | None = None  # profit per action at 24h volume-weighted prices
+    efficiency: float | None = None  # efficiency actually applied (None for fixed rates)
     gp_hr_raw: float | None = None
     gp_hr: float | None = None
     gp_hr_risk_adjusted: float | None = None
@@ -206,28 +217,32 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
         result.flags.add(Flag.LOW_VOLUME)
 
     # 24h comparison: is today's margin unusually wide?
-    if day_known and result.profit > 0:
-        day_profit = day_revenue + spec.fixed_revenue - day_cost
-        if result.profit > settings.margin_spike_factor * max(day_profit, 0):
+    if day_known:
+        result.day_profit = day_profit = day_revenue + spec.fixed_revenue - day_cost
+        if result.profit > 0 and result.profit > settings.margin_spike_factor * max(day_profit, 0):
             result.flags.add(Flag.MARGIN_SPIKE)
 
     # Rate
     if spec.ticks_estimated:
         result.flags.add(Flag.ESTIMATED_RATE)
     result.actions_per_hour = actions_per_hour(spec, settings)
+    if spec.fixed_rate is None:
+        result.efficiency = spec.efficiency if spec.efficiency is not None else settings.efficiency
     if result.actions_per_hour is None:
         result.flags.add(Flag.NO_RATE)
         return result
 
-    caps = [(result.actions_per_hour, Limit.SPEED)]
+    caps = [Cap(Limit.SPEED, result.actions_per_hour)]
     for leg in inputs:
         if leg.kind == "item" and leg.buy_limit and leg.quantity > 0:
-            caps.append((leg.buy_limit / BUY_LIMIT_WINDOW_HOURS / leg.quantity, Limit.BUY_LIMIT))
+            caps.append(Cap(Limit.BUY_LIMIT, leg.buy_limit / BUY_LIMIT_WINDOW_HOURS / leg.quantity, leg.name))
     for leg in item_legs:
         if leg.quantity > 0:
             hourly_volume = leg.daily_volume / 24
-            caps.append((settings.liquidity_share * hourly_volume / leg.quantity, Limit.LIQUIDITY))
-    result.effective_actions, result.limiting_factor = min(caps, key=lambda cap: cap[0])
+            caps.append(Cap(Limit.LIQUIDITY, settings.liquidity_share * hourly_volume / leg.quantity, leg.name))
+    result.caps = caps
+    binding = min(caps, key=lambda cap: cap.actions_per_hour)
+    result.effective_actions, result.limiting_factor = binding.actions_per_hour, binding.limit
 
     result.gp_hr_raw = result.profit * result.actions_per_hour
     result.gp_hr = result.profit * result.effective_actions

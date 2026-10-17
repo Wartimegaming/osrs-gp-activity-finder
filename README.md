@@ -7,9 +7,11 @@ See [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md) for the full specification.
 
 ## Status
 
-**M3: web UI.** A local web app ranks money makers by live GE prices, with filters, an F2P tag,
-price modes, auto-refresh and a hiscores level filter. Data lives in a local SQLite database
-(`data/osrs.db`) that the server keeps fresh. Next: a detail view with charts (M4).
+**M4: detail view.** A local web app ranks money makers by live GE prices, with filters, an F2P
+tag, price modes, auto-refresh and a hiscores level filter. Clicking a method opens its profit
+breakdown, what limits its rate, 7-day price and volume charts, and the assumptions behind it.
+Data lives in a local SQLite database (`data/osrs.db`) that the server keeps fresh.
+Next: Phase 2 (GE flipping, item sets and decanting, favourites).
 
 ## Quick start
 

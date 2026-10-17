@@ -119,6 +119,18 @@ class RateTest(unittest.TestCase):
         self.assertEqual(r.limiting_factor, Limit.LIQUIDITY)
         self.assertAlmostEqual(r.effective_actions, 10)  # 10% of 100/hour
 
+    def test_caps_list_every_limit(self):
+        r = evaluate(orb_spec(), market(replace(GLASS, buy_limit=400), ORB), S)
+        caps = {(c.limit, c.item): c.actions_per_hour for c in r.caps}
+        self.assertAlmostEqual(caps[(Limit.SPEED, None)], 1800)
+        self.assertAlmostEqual(caps[(Limit.BUY_LIMIT, "Molten glass")], 100)
+        self.assertAlmostEqual(caps[(Limit.LIQUIDITY, "Unpowered orb")], 0.1 * 1_000_000 / 24)
+        self.assertEqual(r.efficiency, 0.9)
+
+    def test_day_profit(self):
+        r = evaluate(orb_spec(), market(GLASS, replace(ORB, day_avg_low=180)), S)
+        self.assertEqual(r.day_profit, 180 - 3 - 100)
+
     def test_capital_per_hour(self):
         r = evaluate(orb_spec(), market(GLASS, ORB), S)
         self.assertAlmostEqual(r.capital_per_hour, 100 * 1800)

@@ -8,19 +8,10 @@ import {
   type SortingState,
 } from '@tanstack/react-table'
 import { useState } from 'react'
-import type { Activity, Flag, Player } from '../api'
+import type { Activity, Player } from '../api'
 import { missingLevels } from '../filters'
 import { age, exact, gp, percent } from '../format'
-
-const FLAGS: Record<Flag, { label: string; hint: string; tone: 'warn' | 'bad' | 'info' }> = {
-  margin_spike: { label: 'Spike', hint: 'Margin is far above its 24h average; may not last', tone: 'warn' },
-  stale_price: { label: 'Stale', hint: 'A price used here last traded over 30 minutes ago', tone: 'warn' },
-  low_volume: { label: 'Thin', hint: 'Daily volume is close to the minimum threshold', tone: 'warn' },
-  illiquid: { label: 'Illiquid', hint: 'An item trades below the daily volume threshold', tone: 'bad' },
-  estimated_rate: { label: 'Est. rate', hint: 'Speed assumed (wiki lists 0 ticks; 2 ticks used)', tone: 'info' },
-  no_rate: { label: 'No rate', hint: 'No reliable actions/hour; add an override to rank it', tone: 'info' },
-  missing_price: { label: 'No price', hint: 'An item has no recent price', tone: 'bad' },
-}
+import { FLAGS } from './flags'
 
 const LIMITS = {
   speed: { label: 'Speed', hint: 'Limited by how fast you can make it' },
@@ -42,7 +33,7 @@ function columns(player: Player | null) {
           {a.icon ? <img src={a.icon} alt="" loading="lazy" width={24} height={24} /> : <span className="icon-gap" />}
           <div>
             <div className="activity-name">
-              {a.wiki_url ? <a href={a.wiki_url} target="_blank" rel="noreferrer">{a.name}</a> : a.name}
+              <span>{a.name}</span>
               {a.f2p && <span className="tag f2p" title="Free-to-play: recipe and every item are F2P">F2P</span>}
             </div>
             <div className="activity-sub">
@@ -136,9 +127,11 @@ interface Props {
   activities: Activity[]
   total: number
   player: Player | null
+  selected: string | null
+  onSelect: (key: string) => void
 }
 
-export default function ActivityTable({ activities, total, player }: Props) {
+export default function ActivityTable({ activities, total, player, selected, onSelect }: Props) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'gp_hr', desc: true }])
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   // Filters can shrink the list under the current page; clamp instead of showing an empty page.
@@ -188,7 +181,10 @@ export default function ActivityTable({ activities, total, player }: Props) {
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className={missingLevels(row.original, player).length ? 'locked' : ''}>
+              <tr key={row.id} tabIndex={0} aria-label={`${row.original.name}: open details`}
+                className={[missingLevels(row.original, player).length ? 'locked' : '', row.id === selected ? 'selected' : ''].join(' ')}
+                onClick={() => onSelect(row.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(row.id) } }}>
                 {row.getVisibleCells().map((cell) => {
                   const meta = cell.column.columnDef.meta as { numeric?: boolean } | undefined
                   return (

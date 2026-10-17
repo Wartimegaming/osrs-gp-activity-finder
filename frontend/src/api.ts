@@ -19,6 +19,16 @@ export interface Leg {
   min_daily_volume: number
   buy_limit: number | null
   icon: string | null
+  day_avg_high: number | null
+  day_avg_low: number | null
+}
+
+export type Limit = 'speed' | 'buy_limit' | 'liquidity'
+
+export interface Cap {
+  limit: Limit
+  actions_per_hour: number
+  item: string | null
 }
 
 export interface Activity {
@@ -44,7 +54,7 @@ export interface Activity {
   profit: number
   actions_per_hour: number | null
   effective_actions: number | null
-  limiting_factor: 'speed' | 'buy_limit' | 'liquidity' | null
+  limiting_factor: Limit | null
   gp_hr_raw: number | null
   gp_hr: number | null
   gp_hr_risk_adjusted: number | null
@@ -58,6 +68,32 @@ export interface Activity {
   liquid: boolean
   price_age: number | null
   flags: Flag[]
+  day_profit: number | null
+  caps: Cap[]
+  assumptions: {
+    price_mode: PriceMode
+    ticks_estimated: boolean
+    trip_overhead_ticks: number | null
+    efficiency: number | null
+    fixed_rate: number | null
+    liquidity_share: number
+    override_key: string | null
+  }
+}
+
+export interface HistoryPoint {
+  ts: number
+  avg_high: number | null
+  avg_low: number | null
+  high_volume: number
+  low_volume: number
+}
+
+export interface History {
+  item_id: number
+  hours: number
+  newest: number | null
+  points: HistoryPoint[]
 }
 
 export interface ActivitiesResponse {
@@ -96,4 +132,6 @@ export const fetchActivities = (mode: PriceMode) =>
 export const fetchStatus = () => request<Status>('/api/status')
 export const fetchPlayer = (name: string) =>
   request<Player>(`/api/hiscores?name=${encodeURIComponent(name)}`)
+export const fetchHistory = (itemId: number, hours = 168) =>
+  request<History>(`/api/history/${itemId}?hours=${hours}`)
 export const refreshPrices = () => request<{ ok: boolean; error: string | null }>('/api/refresh', { method: 'POST' })

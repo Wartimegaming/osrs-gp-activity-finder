@@ -4,6 +4,7 @@ import urllib.parse
 
 from backend.engine.market import Market
 from backend.engine.model import PricedLeg, Result
+from backend.engine.settings import Settings
 
 WIKI = "https://oldschool.runescape.wiki"
 
@@ -32,10 +33,12 @@ def _leg(leg: PricedLeg, market: Market) -> dict:
         "min_daily_volume": leg.min_daily_volume,
         "buy_limit": leg.buy_limit,
         "icon": icon_url(item.icon) if item else None,
+        "day_avg_high": item.day_avg_high if item else None,
+        "day_avg_low": item.day_avg_low if item else None,
     }
 
 
-def result(r: Result, market: Market) -> dict:
+def result(r: Result, market: Market, settings: Settings) -> dict:
     spec = r.spec
     main = (r.outputs or r.inputs)[0]  # what the row is "about": the product, or the alched item
     main_item = market.get(main.item_id)
@@ -76,4 +79,15 @@ def result(r: Result, market: Market) -> dict:
         "liquid": r.liquid,
         "price_age": r.price_age,
         "flags": sorted(r.flags),
+        "day_profit": r.day_profit,
+        "caps": [{"limit": c.limit, "actions_per_hour": c.actions_per_hour, "item": c.item} for c in r.caps],
+        "assumptions": {
+            "price_mode": settings.price_mode,
+            "ticks_estimated": spec.ticks_estimated,
+            "trip_overhead_ticks": spec.trip_overhead_ticks if spec.actions_per_trip else None,
+            "efficiency": r.efficiency,
+            "fixed_rate": spec.fixed_rate,
+            "liquidity_share": settings.liquidity_share,
+            "override_key": spec.wiki_page if spec.type == "recipe" else None,
+        },
     }

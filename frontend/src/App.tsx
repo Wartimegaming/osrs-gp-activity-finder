@@ -2,11 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { fetchActivities, fetchPlayer, fetchStatus, refreshPrices } from './api'
 import ActivityTable from './components/ActivityTable'
+import DetailPanel from './components/detail/DetailPanel'
 import FilterBar from './components/FilterBar'
 import Header from './components/Header'
 import PlayerBar from './components/PlayerBar'
 import { applyFilters, DEFAULT_SETTINGS, skillsIn, type Settings } from './filters'
+import { useHashSelection } from './useHashSelection'
 import { usePersistentState } from './usePersistentState'
+import type { Activity } from './api'
 
 export default function App() {
   const [settings, setSettings] = usePersistentState<Settings>('gp-finder:settings', DEFAULT_SETTINGS)
@@ -40,6 +43,9 @@ export default function App() {
   const visible = useMemo(() => applyFilters(all, settings, playerData), [all, settings, playerData])
   const skills = useMemo(() => skillsIn(all), [all])
 
+  const [selectedKey, openDetail, closeDetail] = useHashSelection()
+  const selected: Activity | null = selectedKey ? all.find((a) => a.key === selectedKey) ?? null : null
+
   return (
     <div className="page">
       <Header
@@ -66,9 +72,14 @@ export default function App() {
         {activities.isPending ? (
           <div className="empty">Loading activities…</div>
         ) : (
-          <ActivityTable activities={visible} total={all.length} player={playerData} />
+          <ActivityTable activities={visible} total={all.length} player={playerData}
+            selected={selectedKey} onSelect={openDetail} />
         )}
       </main>
+      {selectedKey && (
+        <DetailPanel activity={selected} missing={!activities.isPending && !selected}
+          player={playerData} onClose={closeDetail} />
+      )}
     </div>
   )
 }

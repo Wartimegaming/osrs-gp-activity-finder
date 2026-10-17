@@ -50,11 +50,12 @@ class ResultCache:
         conn = db.connect()
         try:
             now = int(time.time())
+            settings = Settings(price_mode=mode)
             market = market_mod.load(conn, now)
-            results = evaluate_all(conn, Settings(price_mode=mode), market=market)
+            results = evaluate_all(conn, settings, market=market)
         finally:
             conn.close()
-        rows = [serialize.result(r, market) for r in results if r.profit is not None and r.profit > 0]
+        rows = [serialize.result(r, market, settings) for r in results if r.profit is not None and r.profit > 0]
         return {"mode": mode, "generated_at": now, "count": len(rows), "activities": rows}
 
 
@@ -97,6 +98,23 @@ def create_app(run_scheduler: bool = True) -> FastAPI:
             }
         finally:
             conn.close()
+
+    @app.get("/api/history/{item_id}")
+    def history(item_id: int, hours: int = Query(168, ge=1, le=24 * 30)):
+        """Hourly average prices and volumes for one item, oldest first."""
+        conn = db.connect()
+        try:
+            if not conn.execute("SELECT 1 FROM items WHERE id = ?", (item_id,)).fetchone():
+                raise HTTPException(404, f"Unknown item {item_id}")
+            rows = conn.execute(
+                "SELECT ts, avg_high, avg_low, high_volume, low_volume FROM hourly_prices "
+                "WHERE item_id = ? AND ts > (SELECT MAX(ts) FROM hourly_prices) - ? ORDER BY ts",
+                (item_id, hours * 3600),
+            ).fetchall()
+            newest = conn.execute("SELECT MAX(ts) FROM hourly_prices").fetchone()[0]
+        finally:
+            conn.close()
+        return {"item_id": item_id, "hours": hours, "newest": newest, "points": [dict(r) for r in rows]}
 
     @app.post("/api/refresh")
     async def refresh():

@@ -92,6 +92,20 @@ class ApiTest(unittest.TestCase):
         self.assertTrue(orb["liquid"])
         self.assertEqual(orb["wiki_url"], "https://oldschool.runescape.wiki/w/Unpowered_orb")
 
+    def test_detail_fields(self):
+        body = self.client.get("/api/activities").json()
+        orb = next(a for a in body["activities"] if a["name"] == "Unpowered orb" and a["type"] == "recipe")
+        self.assertEqual({c["limit"] for c in orb["caps"]}, {"speed", "buy_limit", "liquidity"})
+        self.assertEqual(orb["assumptions"]["override_key"], "Unpowered orb")
+        self.assertEqual(orb["day_profit"], 200 - 4 - 100)
+
+    def test_history(self):
+        body = self.client.get("/api/history/567?hours=12").json()
+        self.assertEqual(len(body["points"]), 12)
+        self.assertLess(body["points"][0]["ts"], body["points"][-1]["ts"])
+        self.assertEqual(body["points"][0]["high_volume"], 5000)
+        self.assertEqual(self.client.get("/api/history/424242").status_code, 404)
+
     def test_bad_mode(self):
         self.assertEqual(self.client.get("/api/activities?mode=greedy").status_code, 422)
 
