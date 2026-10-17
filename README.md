@@ -12,12 +12,13 @@ SQLite database (`data/osrs.db`). The profit engine (M2) and web UI (M3) come ne
 
 ## Usage
 
-Requires Python 3.12+. M1 uses only the standard library.
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-python3 -m backend ingest all          # items, latest prices, current hour, recipes
-python3 -m backend backfill            # one-off: fetch the last 7 days of hourly snapshots (~3 min)
-python3 -m backend report --unmatched 20
+uv sync                                    # create .venv and install dependencies
+uv run python -m backend ingest all        # items, latest prices, current hour, recipes
+uv run python -m backend backfill          # one-off: fetch the last 7 days of hourly snapshots (~3 min)
+uv run python -m backend report --unmatched 20
 ```
 
 Individual jobs: `ingest mapping | latest | hourly | recipes`.
@@ -30,5 +31,5 @@ Recipe corrections (missing ticks, name aliases, exclusions) go in
 ## Tests
 
 ```bash
-python3 -m unittest discover -s tests -t .
+uv run pytest
 ```
