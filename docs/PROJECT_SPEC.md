@@ -280,7 +280,7 @@ Controls:
 - Search
 - Player name box (loads hiscores, see 3.3) at the top of the page
 - Filters: type, skill, "only what I can do" (on when a player is loaded), F2P only,
-  risk level, show illiquid
+  risk level, show illiquid, minimum daily volume of the product (accepts `500`, `10k`, `1.5m`)
 - **Members is the default.** F2P methods are marked with an F2P tag (from the
   `members` flag on the recipe and on every input and output item); "F2P only" narrows to them.
 - Price mode toggle

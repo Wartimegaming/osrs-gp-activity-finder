@@ -248,6 +248,11 @@ class RankTest(unittest.TestCase):
         self.assertEqual(self.names(player_levels={"crafting": 20}), ["Free orb"])
         self.assertEqual(len(self.names(player_levels={"crafting": 99})), 2)
 
+    def test_min_daily_volume(self):
+        # Free orb and Unpowered orb trade 1m a day; Thin orb trades 10.
+        self.assertEqual(self.names(include_illiquid=True, min_daily_volume=1000), ["Free orb", "Unpowered orb"])
+        self.assertIn("Thin orb", self.names(include_illiquid=True, min_daily_volume=10))
+
     def test_search(self):
         self.assertEqual(self.names(search="unpowered"), ["Unpowered orb"])
 

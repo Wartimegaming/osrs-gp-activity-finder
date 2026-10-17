@@ -89,6 +89,7 @@ def cmd_rank(conn, args) -> None:
         max_risk=Risk(args.max_risk) if args.max_risk else None,
         search=args.search or "",
         min_consistency=args.min_consistency,
+        min_daily_volume=args.min_volume,
     )
     results = rank(evaluate_all(conn, settings), filters, SortKey(args.sort))
     header = (f"{'#':>3}  {'Activity':<34} {'Type':<6} {'Skill':<14} {'GP/hr':>7} {'Risk-adj':>8} "
@@ -144,6 +145,8 @@ def main(argv: list[str] | None = None) -> None:
     ranking.add_argument("--sell-hours", type=int, choices=[1, 4, 12, 24], default=1,
                          help="hours you'll take to sell an hour's output (steady-priced methods only)")
     ranking.add_argument("--type", action="append", choices=["recipe", "alch", "flip", "decant", "set", "shop", "chain"])
+    ranking.add_argument("--min-volume", type=int, metavar="UNITS",
+                         help="only methods whose product trades at least this many a day")
     ranking.add_argument("--min-consistency", type=float, metavar="SHARE",
                          help="only methods profitable in at least this share of last week's hours, e.g. 0.8")
     ranking.add_argument("--f2p", action="store_true", help="free-to-play methods only")

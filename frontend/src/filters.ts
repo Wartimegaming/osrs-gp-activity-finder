@@ -41,6 +41,7 @@ export interface Settings {
   favouritesOnly: boolean
   showHidden: boolean
   consistentOnly: boolean
+  minVolume: string // as typed, e.g. "10k"; empty means no minimum
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -58,6 +59,15 @@ export const DEFAULT_SETTINGS: Settings = {
   favouritesOnly: false,
   showHidden: false,
   consistentOnly: false,
+  minVolume: '',
+}
+
+/** "10k" -> 10000, "1.5m" -> 1500000, "2,500" -> 2500. Null when empty or not a number. */
+export function parseAmount(text: string): number | null {
+  const match = text.trim().toLowerCase().replace(/,/g, '').match(/^(\d+(?:\.\d+)?)\s*([kmb]?)$/)
+  if (!match) return null
+  const scale = { '': 1, k: 1e3, m: 1e6, b: 1e9 }[match[2] as '' | 'k' | 'm' | 'b']
+  return Number(match[1]) * scale
 }
 
 /** "Consistent only" keeps methods profitable in at least this share of last week's hours. */
@@ -75,7 +85,9 @@ export function missingLevels(activity: Activity, player: Player | null): string
 
 export function applyFilters(activities: Activity[], s: Settings, player: Player | null, marks: Marks): Activity[] {
   const search = s.search.trim().toLowerCase()
+  const minVolume = parseAmount(s.minVolume)
   return activities.filter((a) => {
+    if (minVolume != null && a.daily_volume < minVolume) return false
     const mark = marks[a.key]
     if (s.favouritesOnly && mark !== 'favourite') return false
     if (!s.showHidden && mark === 'hidden') return false

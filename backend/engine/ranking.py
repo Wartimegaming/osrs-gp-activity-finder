@@ -25,6 +25,7 @@ class Filters:
     player_levels: dict[str, int] | None = None  # from hiscores; None means no level filter
     search: str = ""
     min_consistency: float | None = None  # e.g. 0.8: profitable in at least 80% of the last week's hours
+    min_daily_volume: int | None = None  # the product's units traded on the GE in the last 24 hours
 
 
 _RISK_ORDER = [Risk.LOW, Risk.MEDIUM, Risk.HIGH]
@@ -92,6 +93,12 @@ def _best_shop_per_item(results: list[Result]) -> list[Result]:
     return others
 
 
+def main_volume(r: Result) -> int:
+    """Daily volume of what the method is about: the product, or the item alched/flipped."""
+    legs = r.outputs or r.inputs
+    return legs[0].daily_volume if legs else 0
+
+
 def rank(results: list[Result], filters: Filters = Filters(), sort: SortKey = SortKey.GP_HR) -> list[Result]:
     def keep(r: Result) -> bool:
         if not r.ranked or r.gp_hr <= 0:
@@ -109,6 +116,8 @@ def rank(results: list[Result], filters: Filters = Filters(), sort: SortKey = So
         if filters.search and filters.search.lower() not in r.spec.name.lower():
             return False
         if filters.min_consistency is not None and (r.consistency or 0) < filters.min_consistency:
+            return False
+        if filters.min_daily_volume is not None and main_volume(r) < filters.min_daily_volume:
             return False
         return True
 

@@ -1,5 +1,5 @@
 import type { Risk } from '../api'
-import { TYPE_OPTIONS, type Settings } from '../filters'
+import { parseAmount, TYPE_OPTIONS, type Settings } from '../filters'
 
 interface Props {
   settings: Settings
@@ -25,6 +25,12 @@ export default function FilterBar({ settings: s, skills, onChange, onReset }: Pr
         <option value="medium">Low &amp; medium risk</option>
         <option value="low">Low risk only</option>
       </select>
+      <label className={`volume-filter ${s.minVolume && parseAmount(s.minVolume) == null ? 'invalid' : ''}`}
+        title="Only methods whose product trades at least this many a day on the GE (e.g. 500, 10k, 1.5m)">
+        <span>Min daily vol</span>
+        <input type="text" inputMode="decimal" placeholder="any" value={s.minVolume} size={6}
+          aria-label="Minimum daily volume" onChange={(e) => onChange({ minVolume: e.target.value })} />
+      </label>
       <label className="check">
         <input type="checkbox" checked={s.f2pOnly} onChange={(e) => onChange({ f2pOnly: e.target.checked })} />
         F2P only
