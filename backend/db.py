@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS recipes (
     ticks_source TEXT NOT NULL,     -- wiki | zero | unknown | override
     ticks_raw    TEXT,
     efficiency   REAL,              -- per-recipe override; NULL means use the default
+    actions_per_hour REAL,          -- per-recipe override; skips the tick model
     members      INTEGER NOT NULL,
     f2p          INTEGER NOT NULL,  -- recipe and every item involved are free-to-play
     ge_viable    INTEGER NOT NULL,  -- output and every material can be traded on the GE
@@ -107,7 +108,21 @@ def connect(path: Path | str = config.DB_PATH) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.executescript(SCHEMA)
+    _migrate(conn)
     return conn
+
+
+# Columns added after a table was first created: (table, column, definition).
+_ADDED_COLUMNS = [
+    ("recipes", "actions_per_hour", "REAL"),
+]
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    for table, column, definition in _ADDED_COLUMNS:
+        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def set_meta(conn: sqlite3.Connection, key: str, value: str | int | float) -> None:

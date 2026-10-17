@@ -7,8 +7,9 @@ See [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md) for the full specification.
 
 ## Status
 
-**M1: data layer.** Prices, hourly volume history and recipes are pulled into a local
-SQLite database (`data/osrs.db`). The profit engine (M2) and web UI (M3) come next.
+**M2: profit engine.** Prices, hourly volume history and recipes are pulled into a local
+SQLite database (`data/osrs.db`) and ranked by GP/hr from the command line. The web UI (M3)
+comes next.
 
 ## Usage
 
@@ -19,7 +20,12 @@ uv sync                                    # create .venv and install dependenci
 uv run python -m backend ingest all        # items, latest prices, current hour, recipes
 uv run python -m backend backfill          # one-off: fetch the last 7 days of hourly snapshots (~3 min)
 uv run python -m backend report --unmatched 20
+uv run python -m backend rank              # top 25 by effective GP/hr
 ```
+
+`rank` options: `--mode instant|patient|average`, `--sort gp_hr|risk_adjusted`,
+`--type recipe|alch`, `--f2p`, `--max-risk low|medium|high`, `--include-illiquid`,
+`--search TEXT`, `--top N`.
 
 Individual jobs: `ingest mapping | latest | hourly | recipes`.
 Suggested cadence: `latest` every minute, `hourly` every hour, `mapping` daily,

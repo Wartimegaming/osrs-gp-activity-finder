@@ -4,6 +4,9 @@ import argparse
 import time
 
 from backend import db
+from backend.engine.model import Risk
+from backend.engine.ranking import Filters, SortKey, evaluate_all, rank
+from backend.engine.settings import PriceMode, Settings
 from backend.ingest import mapping, prices, recipes
 
 
@@ -58,6 +61,41 @@ def cmd_report(conn, args) -> None:
             print(f"  {row['uses']:>4}  {row['name']}")
 
 
+def _gp(value: float | None) -> str:
+    if value is None:
+        return "-"
+    for limit, suffix in ((1e9, "b"), (1e6, "m"), (1e3, "k")):
+        if abs(value) >= limit:
+            return f"{value / limit:.1f}{suffix}"
+    return f"{value:.0f}"
+
+
+def cmd_rank(conn, args) -> None:
+    settings = Settings(price_mode=PriceMode(args.mode))
+    filters = Filters(
+        types=frozenset(args.type or ()),
+        f2p_only=args.f2p,
+        include_illiquid=args.include_illiquid,
+        max_risk=Risk(args.max_risk) if args.max_risk else None,
+        search=args.search or "",
+    )
+    results = rank(evaluate_all(conn, settings), filters, SortKey(args.sort))
+    header = (f"{'#':>3}  {'Activity':<34} {'Type':<6} {'Skill':<14} {'GP/hr':>7} {'Risk-adj':>8} "
+              f"{'Profit':>7} {'Act/hr':>6} {'Limit':<9} {'Day vol':>7} {'ROI':>6} {'Risk':<6} Flags")
+    print(header)
+    print("-" * len(header))
+    for i, r in enumerate(results[: args.top], 1):
+        name = r.spec.name + (f" ({r.spec.variant})" if r.spec.variant else "")
+        skill = ", ".join(f"{s} {lvl}" for s, lvl in r.spec.skills if lvl) or "-"
+        volume = (r.outputs or r.inputs)[0].daily_volume
+        print(f"{i:>3}  {name[:34]:<34} {r.spec.type:<6} {skill[:14]:<14} {_gp(r.gp_hr):>7} "
+              f"{_gp(r.gp_hr_risk_adjusted):>8} {_gp(r.profit):>7} {r.effective_actions:>6.0f} "
+              f"{r.limiting_factor:<9} {_gp(volume):>7} {r.roi * 100 if r.roi is not None else 0:>5.1f}% "
+              f"{r.risk:<6} {','.join(sorted(r.flags)) or '-'}")
+    print(f"\n{len(results)} profitable activities ({args.mode} prices). "
+          f"Use --include-illiquid to show those that fail the volume filter.")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python3 -m backend")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -74,6 +112,17 @@ def main(argv: list[str] | None = None) -> None:
     report.add_argument("--unmatched", type=int, default=0, metavar="N",
                         help="also list the N most used recipe names that aren't GE items")
     report.set_defaults(func=cmd_report)
+
+    ranking = sub.add_parser("rank", help="rank activities by GP/hr")
+    ranking.add_argument("--top", type=int, default=25)
+    ranking.add_argument("--mode", choices=[m.value for m in PriceMode], default="instant")
+    ranking.add_argument("--sort", choices=[k.value for k in SortKey], default="gp_hr")
+    ranking.add_argument("--type", action="append", choices=["recipe", "alch"])
+    ranking.add_argument("--f2p", action="store_true", help="free-to-play methods only")
+    ranking.add_argument("--max-risk", choices=[r.value for r in Risk])
+    ranking.add_argument("--include-illiquid", action="store_true")
+    ranking.add_argument("--search")
+    ranking.set_defaults(func=cmd_rank)
 
     args = parser.parse_args(argv)
     conn = db.connect()

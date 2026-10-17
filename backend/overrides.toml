@@ -7,7 +7,8 @@
 # Per-recipe fixes, matched on the wiki page_name_sub (e.g. "Unpowered orb" or
 # "Bronze javelin#Poison"). Applies to every variant on that sub-page.
 #   ticks      = game ticks per action, when the wiki value is missing or wrong
-#   efficiency = share of the hour spent acting, overriding the default (0.85)
+#   efficiency = share of the hour spent acting, overriding the default (0.9)
+#   actions_per_hour = measured rate; replaces the tick/inventory model entirely
 #   exclude    = true to hide the recipe from results
 #   note       = shown next to the result
 #
@@ -16,3 +17,9 @@
 # ticks = 3
 # efficiency = 0.9
 # note = "Edgeville bank + furnace"
+
+# Stackability is guessed from item names (runes, ammo, feathers, seeds, tablets...).
+# Correct the guess here; it decides how many actions fit in one inventory.
+[stackable]
+add = []
+remove = []

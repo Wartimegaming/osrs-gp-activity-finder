@@ -102,20 +102,30 @@ Tax rule (2%, 5M cap, exempt under 50 gp) is kept in config because Jagex change
 ### 4.2 Price modes (user-selectable)
 - **Instant** (default, conservative): buy at `high`, sell at `low`.
 - **Patient**: buy at `low`, sell at `high`. Higher profit, slower to fill.
-- **Average**: use 1h average prices.
+- **Average**: instant prices averaged over the latest hour (buy at 1h avg high, sell at 1h avg low).
 
 ### 4.3 Rate and GP/hour
+Rates are modelled per **inventory trip**, because banking dominates many fast actions:
 ```
-actions_per_hour = 6000 / ticks_per_action × efficiency   (6000 ticks per hour)
-efficiency       = default 0.85 to cover banking; overridable per recipe
+slots_per_action = max(non-stackable input qty, non-stackable output qty)
+actions_per_trip = floor((28 − tool count) / slots_per_action)      (no banking if 0 slots)
+trip_ticks       = actions_per_trip × ticks + bank_ticks (10) + facility walk (e.g. Sawmill +40)
+actions_per_hour = 6000 × actions_per_trip / trip_ticks × efficiency (0.9)
 raw_gp_hr        = profit × actions_per_hour
 ```
+- The wiki doesn't record stackability, so it is guessed from names (runes, ammo, feathers,
+  seeds, tablets, coins…) with corrections in `overrides.toml` `[stackable]`.
+- Recipes the wiki lists at **0 ticks** are assumed to take **2 ticks** and flagged
+  `estimated_rate`.
+- Recipes with no tick value, and **travel-bound skills (Runecraft)**, get no GP/hr unless an
+  `actions_per_hour` override is set. They still show profit per action.
+- High alchemy: 5 ticks per cast, no banking (noted items), efficiency 1.0, fire staff assumed.
 
 ### 4.4 Real-world limits (what keeps the ranking honest)
 GP/hour is limited by whichever of these is smallest:
-- **Buy limit**: max inputs you can buy per 4 hours (`/mapping.limit`) → max actions/hr.
-- **Liquidity**: how much output the market absorbs. Selling is capped at a set share
-  (default 10%) of the item's traded volume per hour (daily volume ÷ 24).
+- **Buy limit**: sustained rate of `limit ÷ 4` per hour for each input (`/mapping.limit`).
+- **Liquidity**: how much the market absorbs. Buying each input and selling each output is
+  capped at a set share (default 10%) of that item's traded volume per hour (daily volume ÷ 24).
 
 `effective_gp_hr = profit × min(actions_per_hour, buy_limit_cap, liquidity_cap)`
 
@@ -124,10 +134,10 @@ There is no bankroll cap. Capital is used as a **risk** measure instead (Section
 ### 4.5 Volume filter (exclusion rule)
 
 An item that trades once a day is not a real money maker, even with a big margin. The
-**output** and **every input** must pass a daily-volume check, and the bar drops as unit
-value rises:
+**output** and **every input** must pass a daily-volume check. Each item is checked against
+the tier for its own price, so the bar drops as unit value rises:
 
-| Output sell price | Minimum daily volume (units, last 24 hourly snapshots) |
+| Item price | Minimum daily volume (units, last 24 hourly snapshots) |
 |-------------------|-------------------------------------------|
 | < 10k | 500 |
 | 10k – 100k | 50 |

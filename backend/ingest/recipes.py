@@ -20,6 +20,8 @@ from backend import config, db, http
 class Overrides:
     aliases: dict[str, str] = field(default_factory=dict)
     recipes: dict[str, dict] = field(default_factory=dict)  # page_name_sub -> fields
+    stackable_add: set[str] = field(default_factory=set)
+    stackable_remove: set[str] = field(default_factory=set)
 
     @classmethod
     def load(cls, path: Path = config.OVERRIDES_PATH) -> "Overrides":
@@ -27,9 +29,12 @@ class Overrides:
             return cls()
         with path.open("rb") as f:
             raw = tomllib.load(f)
+        stackable = raw.get("stackable", {})
         return cls(
             aliases=raw.get("aliases", {}),
             recipes={r["key"]: r for r in raw.get("recipe", [])},
+            stackable_add=set(stackable.get("add", [])),
+            stackable_remove=set(stackable.get("remove", [])),
         )
 
 
@@ -69,6 +74,7 @@ class Recipe:
     materials: list[Material]
     skills: list[Skill]
     efficiency: float | None = None
+    actions_per_hour: float | None = None
     excluded: bool = False
     note: str | None = None
 
@@ -189,6 +195,7 @@ def _apply_override(recipe: Recipe, override: dict | None) -> None:
     if "ticks" in override:
         recipe.ticks, recipe.ticks_source = int(override["ticks"]), "override"
     recipe.efficiency = override.get("efficiency", recipe.efficiency)
+    recipe.actions_per_hour = override.get("actions_per_hour", recipe.actions_per_hour)
     recipe.excluded = bool(override.get("exclude", False))
     recipe.note = override.get("note")
 
@@ -224,14 +231,14 @@ def _store(conn: sqlite3.Connection, recipes: list[Recipe]) -> None:
         conn.executemany(
             """
             INSERT INTO recipes (recipe_key, page_name, page_name_sub, variant, output_name,
-                output_item_id, output_qty, ticks, ticks_source, ticks_raw, efficiency, members,
-                f2p, ge_viable, excluded, tools, facilities, note)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                output_item_id, output_qty, ticks, ticks_source, ticks_raw, efficiency,
+                actions_per_hour, members, f2p, ge_viable, excluded, tools, facilities, note)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (r.recipe_key, r.page_name, r.page_name_sub, r.variant, r.output_name,
                  r.output_item_id, r.output_qty, r.ticks, r.ticks_source, r.ticks_raw,
-                 r.efficiency, int(r.members), int(r.f2p), int(r.ge_viable), int(r.excluded),
+                 r.efficiency, r.actions_per_hour, int(r.members), int(r.f2p), int(r.ge_viable), int(r.excluded),
                  r.tools, r.facilities, r.note)
                 for r in recipes
             ],
