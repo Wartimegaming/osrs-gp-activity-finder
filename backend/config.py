@@ -1,10 +1,11 @@
 """Static configuration: endpoints, paths and the identity we send to the wiki."""
 
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
-DB_PATH = DATA_DIR / "osrs.db"
+DB_PATH = Path(os.environ.get("OSRS_DB_PATH", DATA_DIR / "osrs.db"))
 OVERRIDES_PATH = Path(__file__).resolve().parent / "overrides.toml"
 
 # The wiki asks every client to identify itself with a project name and contact.

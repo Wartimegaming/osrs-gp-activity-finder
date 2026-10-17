@@ -60,6 +60,7 @@ class ActivitySpec:
     members: bool = True
     skills: tuple[tuple[str, int | None], ...] = ()
     variant: str | None = None
+    wiki_page: str | None = None
     facilities: str | None = None
     tools: str | None = None
     note: str | None = None

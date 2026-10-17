@@ -15,6 +15,7 @@ class ItemMarket:
     members: bool
     buy_limit: int | None
     highalch: int | None
+    icon: str | None = None
     high: int | None = None  # latest instant-buy price
     high_time: int | None = None
     low: int | None = None  # latest instant-sell price
@@ -59,7 +60,7 @@ def load(conn: sqlite3.Connection, now: int) -> Market:
         hour AS (
             SELECT item_id, avg_high, avg_low FROM hourly_prices WHERE ts = :newest
         )
-        SELECT i.id, i.name, i.members, i.buy_limit, i.highalch,
+        SELECT i.id, i.name, i.members, i.buy_limit, i.highalch, i.icon,
                p.high, p.high_time, p.low, p.low_time,
                hour.avg_high AS hour_avg_high, hour.avg_low AS hour_avg_low,
                day.avg_high AS day_avg_high, day.avg_low AS day_avg_low,
@@ -82,7 +83,7 @@ def load(conn: sqlite3.Connection, now: int) -> Market:
             volatility = math.sqrt(variance) / r["mean"]
         items[r["id"]] = ItemMarket(
             id=r["id"], name=r["name"], members=bool(r["members"]),
-            buy_limit=r["buy_limit"], highalch=r["highalch"],
+            buy_limit=r["buy_limit"], highalch=r["highalch"], icon=r["icon"],
             high=r["high"], high_time=r["high_time"], low=r["low"], low_time=r["low_time"],
             hour_avg_high=r["hour_avg_high"], hour_avg_low=r["hour_avg_low"],
             day_avg_high=r["day_avg_high"], day_avg_low=r["day_avg_low"],

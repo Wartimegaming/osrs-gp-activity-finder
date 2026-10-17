@@ -7,13 +7,34 @@ See [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md) for the full specification.
 
 ## Status
 
-**M2: profit engine.** Prices, hourly volume history and recipes are pulled into a local
-SQLite database (`data/osrs.db`) and ranked by GP/hr from the command line. The web UI (M3)
-comes next.
+**M3: web UI.** A local web app ranks money makers by live GE prices, with filters, an F2P tag,
+price modes, auto-refresh and a hiscores level filter. Data lives in a local SQLite database
+(`data/osrs.db`) that the server keeps fresh. Next: a detail view with charts (M4).
 
-## Usage
+## Quick start
 
-Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.12+, [uv](https://docs.astral.sh/uv/) and Node.js 20+.
+
+```bash
+uv sync
+(cd frontend && npm install && npm run build)
+uv run python -m backend serve             # http://localhost:8000
+```
+
+On first start the server loads items, recipes and prices in a few seconds, then backfills a
+week of hourly price history in the background (~3 minutes). After that it keeps itself
+up to date: prices every minute, hourly snapshots every 15 minutes, items daily, recipes weekly.
+
+### Frontend development
+
+```bash
+uv run python -m backend serve             # API on :8000
+(cd frontend && npm run dev)               # UI with hot reload on http://localhost:5173
+```
+
+## Command line
+
+The same data and rankings are available without the UI.
 
 ```bash
 uv sync                                    # create .venv and install dependencies
@@ -28,8 +49,7 @@ uv run python -m backend rank              # top 25 by effective GP/hr
 `--search TEXT`, `--top N`.
 
 Individual jobs: `ingest mapping | latest | hourly | recipes`.
-Suggested cadence: `latest` every minute, `hourly` every hour, `mapping` daily,
-`recipes` weekly. A built-in scheduler arrives with the web server in M3.
+Set `OSRS_DB_PATH` to use a different database file.
 
 Recipe corrections (missing ticks, name aliases, exclusions) go in
 [`backend/overrides.toml`](backend/overrides.toml).

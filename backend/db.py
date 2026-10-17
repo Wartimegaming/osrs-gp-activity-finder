@@ -100,12 +100,14 @@ CREATE INDEX IF NOT EXISTS idx_recipes_output ON recipes(output_item_id);
 """
 
 
-def connect(path: Path | str = config.DB_PATH) -> sqlite3.Connection:
+def connect(path: Path | str | None = None) -> sqlite3.Connection:
+    path = config.DB_PATH if path is None else path
     if path != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 10000")  # the server's refresh jobs write concurrently
     conn.execute("PRAGMA journal_mode = WAL")
     conn.executescript(SCHEMA)
     _migrate(conn)

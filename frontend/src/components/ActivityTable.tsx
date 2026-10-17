@@ -1,0 +1,217 @@
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type SortingState,
+} from '@tanstack/react-table'
+import { useState } from 'react'
+import type { Activity, Flag, Player } from '../api'
+import { missingLevels } from '../filters'
+import { age, exact, gp, percent } from '../format'
+
+const FLAGS: Record<Flag, { label: string; hint: string; tone: 'warn' | 'bad' | 'info' }> = {
+  margin_spike: { label: 'Spike', hint: 'Margin is far above its 24h average; may not last', tone: 'warn' },
+  stale_price: { label: 'Stale', hint: 'A price used here last traded over 30 minutes ago', tone: 'warn' },
+  low_volume: { label: 'Thin', hint: 'Daily volume is close to the minimum threshold', tone: 'warn' },
+  illiquid: { label: 'Illiquid', hint: 'An item trades below the daily volume threshold', tone: 'bad' },
+  estimated_rate: { label: 'Est. rate', hint: 'Speed assumed (wiki lists 0 ticks; 2 ticks used)', tone: 'info' },
+  no_rate: { label: 'No rate', hint: 'No reliable actions/hour; add an override to rank it', tone: 'info' },
+  missing_price: { label: 'No price', hint: 'An item has no recent price', tone: 'bad' },
+}
+
+const LIMITS = {
+  speed: { label: 'Speed', hint: 'Limited by how fast you can make it' },
+  buy_limit: { label: 'Buy limit', hint: 'Limited by the GE buy limit on an input (per 4 hours)' },
+  liquidity: { label: 'Volume', hint: 'Limited by how much the market trades per hour' },
+}
+
+const col = createColumnHelper<Activity>()
+const nullsLast = { sortUndefined: 'last' as const, sortDescFirst: true }
+const num = (v: number | null) => v ?? undefined
+
+function columns(player: Player | null) {
+  return [
+    col.accessor('name', {
+      header: 'Activity',
+      sortDescFirst: false,
+      cell: ({ row: { original: a } }) => (
+        <div className="activity">
+          {a.icon ? <img src={a.icon} alt="" loading="lazy" width={24} height={24} /> : <span className="icon-gap" />}
+          <div>
+            <div className="activity-name">
+              {a.wiki_url ? <a href={a.wiki_url} target="_blank" rel="noreferrer">{a.name}</a> : a.name}
+              {a.f2p && <span className="tag f2p" title="Free-to-play: recipe and every item are F2P">F2P</span>}
+            </div>
+            <div className="activity-sub">
+              {a.type === 'alch' ? 'High alchemy' : a.variant ?? a.facilities ?? 'Processing'}
+            </div>
+          </div>
+        </div>
+      ),
+    }),
+    col.display({
+      id: 'skills',
+      header: 'Requires',
+      cell: ({ row: { original: a } }) => {
+        if (!a.skills.length) return <span className="muted">–</span>
+        const missing = new Set(missingLevels(a, player))
+        return (
+          <div className="skills">
+            {a.skills.map(({ skill, level }) => {
+              const text = `${skill} ${level}`
+              return <span key={skill} className={missing.has(text) ? 'missing' : ''}>{text}</span>
+            })}
+          </div>
+        )
+      },
+    }),
+    col.accessor((a) => num(a.gp_hr), {
+      id: 'gp_hr', header: 'GP/hr', ...nullsLast,
+      cell: (c) => <span className="strong">{gp(c.getValue())}</span>,
+      meta: { numeric: true, hint: 'Profit × actions/hour after buy-limit and volume caps' },
+    }),
+    col.accessor((a) => num(a.gp_hr_risk_adjusted), {
+      id: 'risk_adj', header: 'Risk-adj', ...nullsLast, cell: (c) => gp(c.getValue()),
+      meta: { numeric: true, hint: 'GP/hr scaled down when normal price swings could wipe out the margin' },
+    }),
+    col.accessor('profit', {
+      header: 'Profit/ea', ...nullsLast, cell: (c) => gp(c.getValue()),
+      meta: { numeric: true, hint: 'Profit per action after GE tax' },
+    }),
+    col.accessor((a) => num(a.effective_actions), {
+      id: 'actions', header: 'Actions/hr', ...nullsLast, cell: (c) => exact(c.getValue()),
+      meta: { numeric: true, hint: 'Actions per hour after caps' },
+    }),
+    col.accessor('limiting_factor', {
+      header: 'Limited by', sortUndefined: 'last',
+      cell: (c) => {
+        const limit = c.getValue()
+        return limit ? <span title={LIMITS[limit].hint}>{LIMITS[limit].label}</span> : <span className="muted">–</span>
+      },
+    }),
+    col.accessor('daily_volume', {
+      header: 'Daily vol', ...nullsLast, cell: (c) => gp(c.getValue()),
+      meta: { numeric: true, hint: 'Units of the product traded in the last 24 hours' },
+    }),
+    col.accessor((a) => num(a.roi), {
+      id: 'roi', header: 'ROI', ...nullsLast, cell: (c) => percent(c.getValue()),
+      meta: { numeric: true, hint: 'Profit ÷ input cost, per action' },
+    }),
+    col.accessor((a) => num(a.capital_per_hour), {
+      id: 'capital', header: 'Capital/hr', ...nullsLast, cell: (c) => gp(c.getValue()),
+      meta: { numeric: true, hint: 'GP spent on inputs per hour' },
+    }),
+    col.accessor('risk', {
+      header: 'Risk', sortUndefined: 'last',
+      sortingFn: (a, b) => ['low', 'medium', 'high'].indexOf(a.original.risk ?? 'high') -
+        ['low', 'medium', 'high'].indexOf(b.original.risk ?? 'high'),
+      cell: (c) => {
+        const a = c.row.original
+        if (!a.risk) return <span className="muted">–</span>
+        const hint = `ROI ${percent(a.roi)} · price can fall ${percent(a.breakeven_move)} before a loss · 7-day volatility ${percent(a.volatility)}`
+        return <span className={`risk ${a.risk}`} title={hint}>{a.risk}</span>
+      },
+    }),
+    col.display({
+      id: 'flags', header: 'Flags',
+      cell: ({ row: { original: a } }) => (
+        <div className="flags">
+          {a.flags.map((f) => (
+            <span key={f} className={`tag ${FLAGS[f].tone}`} title={FLAGS[f].hint}>{FLAGS[f].label}</span>
+          ))}
+        </div>
+      ),
+    }),
+    col.accessor((a) => num(a.price_age), {
+      id: 'age', header: 'Price age', sortUndefined: 'last', cell: (c) => age(c.getValue()),
+      meta: { numeric: true, hint: 'Time since the oldest price used last traded' },
+    }),
+  ]
+}
+
+interface Props {
+  activities: Activity[]
+  total: number
+  player: Player | null
+}
+
+export default function ActivityTable({ activities, total, player }: Props) {
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'gp_hr', desc: true }])
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
+  // Filters can shrink the list under the current page; clamp instead of showing an empty page.
+  const pageCount = Math.max(1, Math.ceil(activities.length / pagination.pageSize))
+  const page = Math.min(pagination.pageIndex, pageCount - 1)
+  const table = useReactTable({
+    data: activities,
+    columns: columns(player),
+    state: { sorting, pagination: { ...pagination, pageIndex: page } },
+    onSortingChange: setSorting,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    autoResetPageIndex: false,
+    getRowId: (a) => a.key,
+  })
+
+  if (activities.length === 0) {
+    return <div className="empty">No methods match these filters ({total} profitable in total).</div>
+  }
+
+  return (
+    <section className="table-card">
+      <div className="table-scroll">
+        <table>
+          <thead>
+            {table.getHeaderGroups().map((group) => (
+              <tr key={group.id}>
+                {group.headers.map((header) => {
+                  const meta = header.column.columnDef.meta as { numeric?: boolean; hint?: string } | undefined
+                  const sorted = header.column.getIsSorted()
+                  return (
+                    <th key={header.id} className={meta?.numeric ? 'num' : ''} title={meta?.hint}
+                      aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'}>
+                      {header.column.getCanSort() ? (
+                        <button className="sort" onClick={header.column.getToggleSortingHandler()}>
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          <span className="sort-mark">{sorted === 'asc' ? '▲' : sorted === 'desc' ? '▼' : ''}</span>
+                        </button>
+                      ) : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  )
+                })}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.map((row) => (
+              <tr key={row.id} className={missingLevels(row.original, player).length ? 'locked' : ''}>
+                {row.getVisibleCells().map((cell) => {
+                  const meta = cell.column.columnDef.meta as { numeric?: boolean } | undefined
+                  return (
+                    <td key={cell.id} className={meta?.numeric ? 'num' : ''}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <footer className="table-footer">
+        <span className="muted">{activities.length} of {total} profitable methods</span>
+        <div className="pager">
+          <button className="button ghost" onClick={() => setPagination((p) => ({ ...p, pageIndex: page - 1 }))}
+            disabled={page === 0}>Previous</button>
+          <span>Page {page + 1} of {pageCount}</span>
+          <button className="button ghost" onClick={() => setPagination((p) => ({ ...p, pageIndex: page + 1 }))}
+            disabled={page >= pageCount - 1}>Next</button>
+        </div>
+      </footer>
+    </section>
+  )
+}

@@ -35,8 +35,13 @@ def meets_requirements(result: Result, levels: dict[str, int]) -> bool:
     )
 
 
-def evaluate_all(conn: sqlite3.Connection, settings: Settings, now: int | None = None) -> list[Result]:
-    market = market_mod.load(conn, now or int(time.time()))
+def evaluate_all(
+    conn: sqlite3.Connection,
+    settings: Settings,
+    now: int | None = None,
+    market: market_mod.Market | None = None,
+) -> list[Result]:
+    market = market or market_mod.load(conn, now or int(time.time()))
     specs = activities.recipe_specs(conn, settings) + activities.alch_specs(market, settings)
     return [evaluate(spec, market, settings) for spec in specs]
 

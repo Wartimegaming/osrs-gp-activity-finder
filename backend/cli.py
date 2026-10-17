@@ -96,6 +96,18 @@ def cmd_rank(conn, args) -> None:
           f"Use --include-illiquid to show those that fail the volume filter.")
 
 
+def cmd_serve(conn, args) -> None:
+    import logging
+
+    import uvicorn
+
+    from backend.api.app import create_app
+
+    conn.close()  # the server manages its own connections
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    uvicorn.run(create_app(run_scheduler=not args.no_refresh), host=args.host, port=args.port)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python3 -m backend")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -123,6 +135,12 @@ def main(argv: list[str] | None = None) -> None:
     ranking.add_argument("--include-illiquid", action="store_true")
     ranking.add_argument("--search")
     ranking.set_defaults(func=cmd_rank)
+
+    serve = sub.add_parser("serve", help="run the web UI and API with background refresh")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--no-refresh", action="store_true", help="don't run background refresh jobs")
+    serve.set_defaults(func=cmd_serve)
 
     args = parser.parse_args(argv)
     conn = db.connect()
