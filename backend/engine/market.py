@@ -25,6 +25,7 @@ class ItemMarket:
     day_avg_high: float | None = None  # volume-weighted over the last 24 snapshots
     day_avg_low: float | None = None
     daily_volume: int = 0
+    daily_buy_volume: int | None = None  # of which instant buys (at the high price)
     volatility: float | None = None  # std-dev / mean of hourly mid price over 7 days
 
 
@@ -44,6 +45,7 @@ def load(conn: sqlite3.Connection, now: int) -> Market:
         WITH day AS (
             SELECT item_id,
                    SUM(high_volume + low_volume) AS volume,
+                   SUM(high_volume) AS buy_volume,
                    SUM(avg_high * high_volume) * 1.0 / NULLIF(SUM(CASE WHEN avg_high IS NOT NULL THEN high_volume END), 0) AS avg_high,
                    SUM(avg_low * low_volume) * 1.0 / NULLIF(SUM(CASE WHEN avg_low IS NOT NULL THEN low_volume END), 0) AS avg_low
             FROM hourly_prices WHERE ts > :newest - 86400 GROUP BY item_id
@@ -64,7 +66,7 @@ def load(conn: sqlite3.Connection, now: int) -> Market:
                p.high, p.high_time, p.low, p.low_time,
                hour.avg_high AS hour_avg_high, hour.avg_low AS hour_avg_low,
                day.avg_high AS day_avg_high, day.avg_low AS day_avg_low,
-               COALESCE(day.volume, 0) AS daily_volume,
+               COALESCE(day.volume, 0) AS daily_volume, day.buy_volume AS daily_buy_volume,
                week.mean, week.mean_sq, week.n
         FROM items i
         LEFT JOIN latest_prices p ON p.item_id = i.id
@@ -87,6 +89,6 @@ def load(conn: sqlite3.Connection, now: int) -> Market:
             high=r["high"], high_time=r["high_time"], low=r["low"], low_time=r["low_time"],
             hour_avg_high=r["hour_avg_high"], hour_avg_low=r["hour_avg_low"],
             day_avg_high=r["day_avg_high"], day_avg_low=r["day_avg_low"],
-            daily_volume=r["daily_volume"], volatility=volatility,
+            daily_volume=r["daily_volume"], daily_buy_volume=r["daily_buy_volume"], volatility=volatility,
         )
     return Market(items=items, now=now)

@@ -294,7 +294,31 @@ Controls:
 - Links to the wiki pages
 - Assumptions used (ticks, efficiency, overrides)
 
-### 5.3 Settings
+### 5.3 Merchanting page
+
+A second page (side navigation: **Methods** / **Merchanting**, `#/merch`) for margin flips:
+a buy offer at the latest instant-sell price, then a sell offer at the latest instant-buy price.
+For every item with a margin after tax and at least ~24 trades a day:
+
+- **Fill rate**: the hourly snapshots split volume into instant sells (which fill your buy offer)
+  and instant buys (which fill your sell offer). Items per 4-hour buy-limit window =
+  10% of the slower side × 4 hours, capped at the buy limit. Profit per window and the capital it
+  ties up follow from that.
+- **Signals**: wide (≥ 2%) or thin (< 0.5%) margin; busy, thin or one-sided market (one side
+  ≥ 3× the other); fills the buy limit; steady (≥ 80% of last week's hours had a margin) or
+  unreliable (< 50%) margin; unusually wide (≥ 2.5× the week's median margin, may close);
+  near the 7-day low or high (bottom / top fifth of the week's hourly prices); rising or falling
+  (24h average ≥ 3% from the 7-day average); stale quote (either side older than 30 minutes).
+- **Confidence**: high when quotes are fresh, the margin held in ≥ 80% of hours, both sides trade
+  ≥ 20 an hour and the margin isn't unusually wide; low when stale, unreliable or thin.
+- **Ranking**: profit per window × margin reliability × freshness (× 0.3 if stale) ×
+  (× 0.5 if unusually wide) × (× 0.6 if thin) × min(1, margin ÷ 0.5%), with a 10% bonus near
+  the 7-day low. Filters: confidence, minimum daily volume, minimum margin %, maximum price,
+  near 7-day low, F2P only.
+- **Detail view**: step-by-step offer instructions, every signal explained, the 7-day range,
+  trend and margin history, and the price and volume chart.
+
+### 5.4 Settings
 - Default price mode, efficiency, liquidity share, staleness threshold
 - Volume threshold table (4.5) and risk thresholds (4.6)
 - Remembered player name

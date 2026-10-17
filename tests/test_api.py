@@ -142,6 +142,13 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(orb["assumptions"]["sell_window_hours"], 24)
         self.assertEqual(self.client.get("/api/activities?sell_hours=5").status_code, 422)
 
+    def test_merch(self):
+        body = self.client.get("/api/merch").json()
+        self.assertIn("items", body)
+        for c in body["items"]:
+            self.assertGreater(c["margin"], 0)
+            self.assertIn(c["confidence"], ("high", "medium", "low"))
+
     def test_bad_mode(self):
         self.assertEqual(self.client.get("/api/activities?mode=greedy").status_code, 422)
 

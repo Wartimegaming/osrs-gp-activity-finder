@@ -3,6 +3,9 @@ import { useMemo } from 'react'
 import { fetchActivities, fetchMarks, fetchPlayer, fetchStatus, refreshPrices, saveMark, type Mark, type Marks } from './api'
 import ActivityTable from './components/ActivityTable'
 import DetailPanel from './components/detail/DetailPanel'
+import MerchView from './components/merch/MerchView'
+import SideNav from './components/SideNav'
+import { useView } from './useView'
 import FilterBar from './components/FilterBar'
 import Header from './components/Header'
 import PlayerBar from './components/PlayerBar'
@@ -60,6 +63,7 @@ export default function App() {
   const visible = useMemo(() => applyFilters(all, settings, playerData, marks), [all, settings, playerData, marks])
   const skills = useMemo(() => skillsIn(all), [all])
 
+  const view = useView()
   const [selectedKey, openDetail, closeDetail] = useHashSelection()
   const selected: Activity | null = selectedKey ? all.find((a) => a.key === selectedKey) ?? null : null
 
@@ -70,11 +74,15 @@ export default function App() {
         onModeChange={(mode) => update({ mode })}
         sellHours={settings.sellHours}
         onSellHoursChange={(sellHours) => update({ sellHours })}
+        showMethodControls={view.page === 'methods'}
         status={status.data}
         refreshing={refresh.isPending || activities.isFetching}
         onRefresh={() => refresh.mutate()}
       />
+      <div className="layout">
+      <SideNav view={view} />
       <main>
+        {view.page === 'merch' ? <MerchView itemId={view.itemId} /> : <>
         <PlayerBar
           key={settings.playerName}
           name={settings.playerName}
@@ -95,8 +103,10 @@ export default function App() {
             selected={selectedKey} onSelect={openDetail} marks={marks} onMark={setMark}
             updating={activities.isPlaceholderData && activities.isFetching} />
         )}
+        </>}
       </main>
-      {selectedKey && (
+      </div>
+      {view.page === 'methods' && selectedKey && (
         <DetailPanel activity={selected} missing={!activities.isPending && !selected}
           player={playerData} onClose={closeDetail}
           mark={selectedKey ? marks[selectedKey] ?? null : null}

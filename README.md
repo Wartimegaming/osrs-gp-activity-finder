@@ -11,6 +11,10 @@ See [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md) for the full specification.
 tag, price modes, auto-refresh and a hiscores level filter. Clicking a method opens its profit
 breakdown, what limits its rate, 7-day price and volume charts, and the assumptions behind it.
 Data lives in a local SQLite database (`data/osrs.db`) that the server keeps fresh.
+A separate **Merchanting** page (side navigation) ranks margin flips with buy/sell prices, fill
+rates from each side's volume, items per buy-limit window, and signals such as "near 7-day low",
+"steady margin" or "unusually wide".
+
 Phase 2 adds GE flipping (opt-in from the type filter), potion decanting, item set
 exchanges, and favourites and hidden methods. Phase 3 adds NPC shop → GE resales, two-step
 chains (make the intermediate yourself) and a 7-day consistency score for every method.

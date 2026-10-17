@@ -144,6 +144,46 @@ export type SellHours = 1 | 4 | 12 | 24
 export const fetchActivities = (mode: PriceMode, sellHours: SellHours) =>
   request<ActivitiesResponse>(`/api/activities?mode=${mode}&sell_hours=${sellHours}`)
 export const fetchStatus = () => request<Status>('/api/status')
+
+export interface MerchSignal {
+  key: string
+  label: string
+  tone: 'good' | 'warn' | 'bad'
+  detail: string
+}
+
+export interface MerchItem {
+  item_id: number
+  name: string
+  icon: string | null
+  members: boolean
+  buy_limit: number | null
+  buy_price: number
+  sell_price: number
+  buy_age: number | null
+  sell_age: number | null
+  tax: number
+  margin: number
+  roi: number
+  sellers_per_hour: number
+  buyers_per_hour: number
+  daily_volume: number
+  units_per_window: number
+  profit_per_window: number
+  capital: number
+  adjusted_profit: number
+  confidence: 'high' | 'medium' | 'low'
+  week_low: number | null
+  week_high: number | null
+  week_avg: number | null
+  position: number | null
+  trend_24h: number | null
+  margin_steady: number | null
+  median_margin: number | null
+  signals: MerchSignal[]
+}
+
+export const fetchMerch = () => request<{ generated_at: number; count: number; items: MerchItem[] }>('/api/merch')
 export const fetchPlayer = (name: string) =>
   request<Player>(`/api/hiscores?name=${encodeURIComponent(name)}`)
 export const fetchHistory = (itemId: number, hours = 168) =>

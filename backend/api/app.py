@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from backend import config, db
 from backend.api import hiscores, serialize
 from backend.api.scheduler import JOBS, Scheduler
-from backend.engine import market as market_mod
+from backend.engine import history, market as market_mod, merch
 from backend.engine.ranking import evaluate_all
 from backend.engine.settings import PriceMode, Settings
 from backend.ingest import icons, prices
@@ -38,23 +38,41 @@ class ResultCache:
     def __init__(self):
         self._lock = threading.Lock()
         self._version = 0
-        self._entries: dict[tuple[PriceMode, int], tuple[int, bytes]] = {}
+        self._entries: dict[object, tuple[int, bytes]] = {}
 
     def invalidate(self, _job: str = "") -> None:
         with self._lock:
             self._version += 1
 
     def get(self, mode: PriceMode, sell_hours: int = 1) -> bytes:
-        key = (mode, sell_hours)
+        return self._cached((mode, sell_hours), lambda: self._build(mode, sell_hours))
+
+    def merch(self) -> bytes:
+        return self._cached("merch", self._build_merch)
+
+    def _cached(self, key, build) -> bytes:
         with self._lock:
             version = self._version
             entry = self._entries.get(key)
             if entry and entry[0] == version:
                 return entry[1]
-        payload = self._build(mode, sell_hours)
+        payload = build()
         with self._lock:
             self._entries[key] = (version, payload)
         return payload
+
+    @staticmethod
+    def _build_merch() -> bytes:
+        conn = db.connect()
+        try:
+            now = int(time.time())
+            market = market_mod.load(conn, now)
+            _, series = history.load_series(conn)
+        finally:
+            conn.close()
+        rows = [c.to_dict() for c in merch.candidates(market, series, Settings())]
+        return json.dumps({"generated_at": now, "count": len(rows), "items": rows},
+                          separators=(",", ":"), allow_nan=False).encode()
 
     @staticmethod
     def _build(mode: PriceMode, sell_hours: int) -> bytes:
@@ -92,6 +110,12 @@ def create_app(run_scheduler: bool = True) -> FastAPI:
             raise HTTPException(422, f"sell_hours must be one of {sorted(SELL_WINDOWS)}")
         scheduler.touch()
         return Response(await asyncio.to_thread(cache.get, mode, sell_hours), media_type="application/json")
+
+    @app.get("/api/merch")
+    async def merchanting():
+        """Margin-flip candidates with buy/sell prices, volumes and signals."""
+        scheduler.touch()
+        return Response(await asyncio.to_thread(cache.merch), media_type="application/json")
 
     @app.get("/api/status")
     def status():

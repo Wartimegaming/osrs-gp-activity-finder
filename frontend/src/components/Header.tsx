@@ -19,12 +19,13 @@ interface Props {
   onModeChange: (mode: PriceMode) => void
   sellHours: SellHours
   onSellHoursChange: (hours: SellHours) => void
+  showMethodControls: boolean // price mode and sell window only apply to the Methods page
   status: Status | undefined
   refreshing: boolean
   onRefresh: () => void
 }
 
-export default function Header({ mode, onModeChange, sellHours, onSellHoursChange, status, refreshing, onRefresh }: Props) {
+export default function Header({ mode, onModeChange, sellHours, onSellHoursChange, showMethodControls, status, refreshing, onRefresh }: Props) {
   const latest = status?.refreshed.latest
   const priceAge = status && latest ? status.now - latest : null
   const errors = status ? Object.entries(status.errors) : []
@@ -40,6 +41,7 @@ export default function Header({ mode, onModeChange, sellHours, onSellHoursChang
         </div>
       </div>
       <div className="header-controls">
+        {showMethodControls && <>
         <div className="segmented" role="radiogroup" aria-label="Price mode">
           {MODES.map((m) => (
             <button key={m.value} role="radio" aria-checked={mode === m.value} title={m.hint}
@@ -53,6 +55,7 @@ export default function Header({ mode, onModeChange, sellHours, onSellHoursChang
           onChange={(e) => onSellHoursChange(Number(e.target.value) as SellHours)}>
           {SELL_HOURS.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
         </select>
+        </>}
         <div className="status">
           <span className={`dot ${priceAge != null && priceAge < 180 ? 'live' : 'stale'}`} />
           Prices {priceAge == null ? 'not loaded' : `${age(priceAge)} old`}
