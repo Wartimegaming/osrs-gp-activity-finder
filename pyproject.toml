@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Ranks OSRS money-making methods by GP/hour using live GE prices"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 dependencies = [
     "fastapi>=0.143.3",
     "uvicorn[standard]>=0.54.0",

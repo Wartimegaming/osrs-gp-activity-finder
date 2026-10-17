@@ -219,3 +219,10 @@ tests/         pytest suite
   licensed under [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/).
 - Item icons are © Jagex Ltd., obtained from the OSRS Wiki. Old School RuneScape is a trademark
   of Jagex Ltd.
+
+## License
+
+The code is licensed under the [GNU General Public License v3.0](LICENSE) (GPL-3.0-only): you
+can use, change and share it, and anyone who distributes a modified version must release it under
+the same license. This covers the code only. The item icons (© Jagex Ltd.) and the data from the
+OSRS Wiki keep their own terms, described above.
