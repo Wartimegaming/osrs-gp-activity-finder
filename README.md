@@ -27,7 +27,12 @@ uv run python -m backend serve             # http://localhost:8000
 
 On first start the server loads items, recipes and prices in a few seconds, then backfills a
 week of hourly price history in the background (~3 minutes). After that it keeps itself
-up to date: prices every minute, hourly snapshots every 15 minutes, items daily, recipes weekly.
+up to date, while keeping traffic to the wiki low:
+
+- live prices every minute, **only while the UI is open** (nothing is fetched when nobody's looking)
+- hourly snapshots once an hour; items daily; recipes, item sets and shops weekly
+- item icons are downloaded once into `assets/icons/` and served locally, so the browser never
+  loads anything from the wiki; all requests use gzip and an identifying User-Agent
 
 ### Frontend development
 
@@ -52,7 +57,7 @@ uv run python -m backend rank              # top 25 by effective GP/hr
 `--type recipe|alch|decant|set|shop|chain|flip` (flips only when asked for), `--min-consistency 0.8`, `--f2p`, `--max-risk low|medium|high`, `--include-illiquid`,
 `--search TEXT`, `--top N`.
 
-Individual jobs: `ingest mapping | latest | hourly | recipes | sets | shops`.
+Individual jobs: `ingest mapping | latest | hourly | recipes | sets | shops | icons`.
 Set `OSRS_DB_PATH` to use a different database file.
 
 Recipe corrections (missing ticks, name aliases, exclusions) go in

@@ -7,7 +7,7 @@ from backend import db
 from backend.engine.model import Risk
 from backend.engine.ranking import Filters, SortKey, evaluate_all, rank
 from backend.engine.settings import PriceMode, Settings
-from backend.ingest import mapping, prices, recipes, sets, shops
+from backend.ingest import icons, mapping, prices, recipes, sets, shops
 
 
 def cmd_ingest(conn, args) -> None:
@@ -20,6 +20,9 @@ def cmd_ingest(conn, args) -> None:
             result = f"{prices.refresh_latest(conn)} prices"
         elif job == "hourly":
             result = f"{prices.refresh_hourly(conn)} item rows"
+        elif job == "icons":
+            stats = icons.download(conn)
+            result = f"{stats['saved']} icons saved, {stats['failed']} failed, {stats['remaining']} still missing"
         elif job == "shops":
             stats = shops.refresh(conn)
             result = f"{stats['resellable']} resellable shop items from {stats['shops']} shops"
@@ -122,7 +125,7 @@ def main(argv: list[str] | None = None) -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     ingest = sub.add_parser("ingest", help="refresh data from the wiki")
-    ingest.add_argument("job", choices=["all", "mapping", "latest", "hourly", "recipes", "sets", "shops"])
+    ingest.add_argument("job", choices=["all", "mapping", "latest", "hourly", "recipes", "sets", "shops", "icons"])
     ingest.set_defaults(func=cmd_ingest)
 
     backfill = sub.add_parser("backfill", help="fetch missing historical hourly snapshots")

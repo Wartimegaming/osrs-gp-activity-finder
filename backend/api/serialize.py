@@ -17,8 +17,9 @@ def wiki_url(page: str | None) -> str | None:
     return f"{url}#{urllib.parse.quote(anchor.replace(' ', '_'))}" if anchor else url
 
 
-def icon_url(icon: str | None) -> str | None:
-    return f"{WIKI}/images/{urllib.parse.quote(icon.replace(' ', '_'))}" if icon else None
+def icon_url(item) -> str | None:
+    """Served by this app from assets/icons/; the browser never loads images from the wiki."""
+    return f"/icons/{item.id}.png" if item is not None and item.icon else None
 
 
 def _leg(leg: PricedLeg, market: Market) -> dict:
@@ -32,7 +33,7 @@ def _leg(leg: PricedLeg, market: Market) -> dict:
         "daily_volume": leg.daily_volume,
         "min_daily_volume": leg.min_daily_volume,
         "buy_limit": leg.buy_limit,
-        "icon": icon_url(item.icon) if item else None,
+        "icon": icon_url(item),
         "day_avg_high": item.day_avg_high if item else None,
         "day_avg_low": item.day_avg_low if item else None,
     }
@@ -48,7 +49,7 @@ def result(r: Result, market: Market, settings: Settings) -> dict:
         "name": spec.name,
         "variant": spec.variant,
         "wiki_url": wiki_url(spec.wiki_page),
-        "icon": icon_url(main_item.icon) if main_item else None,
+        "icon": icon_url(main_item),
         "skills": [{"skill": s, "level": lvl} for s, lvl in spec.skills if lvl],
         "f2p": r.f2p,
         "facilities": spec.facilities,

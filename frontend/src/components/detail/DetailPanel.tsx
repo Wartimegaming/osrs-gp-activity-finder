@@ -5,6 +5,7 @@ import { missingLevels, TYPE_LABEL } from '../../filters'
 import { StarButton } from '../ActivityTable'
 import { age, exact, gp, percent } from '../../format'
 import { FLAGS } from '../flags'
+import ItemIcon from '../ItemIcon'
 import PriceChart from './PriceChart'
 import RateCaps from './RateCaps'
 
@@ -26,7 +27,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 function ItemCell({ leg }: { leg: Leg }) {
   return (
     <span className="item-cell">
-      {leg.icon ? <img src={leg.icon} alt="" width={20} height={20} loading="lazy" /> : <span className="icon-gap small" />}
+      <ItemIcon key={leg.icon} src={leg.icon} size={20} />
       {leg.name}
     </span>
   )
@@ -74,7 +75,7 @@ export default function DetailPanel({ activity: a, missing, player, onClose, mar
         ) : (
           <>
             <header className="detail-head">
-              {a.icon && <img src={a.icon} alt="" width={36} height={36} />}
+              <ItemIcon key={a.icon} src={a.icon} size={36} />
               <div>
                 <h2><StarButton mark={mark} name={a.name} onMark={onMark} /> {a.name}</h2>
                 <div className="muted">

@@ -12,6 +12,7 @@ import type { Activity, Mark, Marks, Player } from '../api'
 import { missingLevels, TYPE_LABEL } from '../filters'
 import { age, exact, gp, percent } from '../format'
 import { FLAGS } from './flags'
+import ItemIcon from './ItemIcon'
 
 const LIMITS = {
   speed: { label: 'Speed', hint: 'Limited by how fast you can make it' },
@@ -44,7 +45,7 @@ function columns(player: Player | null, marks: Marks, onMark: (key: string, mark
       cell: ({ row: { original: a } }) => (
         <div className="activity">
           <StarButton mark={marks[a.key]} name={a.name} onMark={(m) => onMark(a.key, m)} />
-          {a.icon ? <img src={a.icon} alt="" loading="lazy" width={24} height={24} /> : <span className="icon-gap" />}
+          <ItemIcon key={a.icon} src={a.icon} size={24} />
           <div>
             <div className="activity-name">
               <span>{a.name}</span>

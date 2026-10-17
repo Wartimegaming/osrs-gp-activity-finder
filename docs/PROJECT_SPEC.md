@@ -105,6 +105,25 @@ the levels are cached locally (refresh on demand, at most every few minutes). Re
 player's level are hidden by default; a toggle shows them greyed out with the missing levels.
 If the lookup fails (name typo, hiscores down), the app falls back to showing everything.
 
+### 3.6 Keeping outside traffic low
+
+The app is a guest of free community services, so it fetches as little as it can:
+
+| Data | When it's fetched | Size per fetch (gzip) |
+|------|-------------------|------------------------|
+| Live prices (`/latest`) | Every 60 s, **only while the UI has been used in the last 10 minutes** | ~72 KB |
+| Hourly snapshot (`/1h`) | Once per hour, after the wiki publishes it | ~42 KB |
+| Item list (`/mapping`) | Daily | ~140 KB |
+| Recipes, item sets, shops | Weekly, in batched bucket and page queries | — |
+| History backfill | Once on first run (168 requests, 1 per second) | ~42 KB each |
+| Item icons | **Once per icon, ever** (4 per second), stored in `assets/icons/` | ~1 KB each |
+| Hiscores | Only when you load a player; cached 5 minutes | — |
+
+- Every request asks for gzip and sends the identifying User-Agent.
+- **The browser never contacts the wiki.** Icons are served by this app from `assets/icons/`
+  (committed to the repo). An icon that hasn't been downloaded yet shows as a blank space;
+  the server never fetches it on request. Wiki links are only followed when clicked.
+
 ## 4. Profit Model
 
 ### 4.1 Per action

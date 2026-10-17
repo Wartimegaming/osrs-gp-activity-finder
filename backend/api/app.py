@@ -21,7 +21,7 @@ from backend.api.scheduler import JOBS, Scheduler
 from backend.engine import market as market_mod
 from backend.engine.ranking import evaluate_all
 from backend.engine.settings import PriceMode, Settings
-from backend.ingest import prices
+from backend.ingest import icons, prices
 
 FRONTEND_DIST = config.ROOT / "frontend" / "dist"
 
@@ -86,10 +86,12 @@ def create_app(run_scheduler: bool = True) -> FastAPI:
 
     @app.get("/api/activities")
     async def activities(mode: PriceMode = PriceMode.INSTANT):
+        scheduler.touch()
         return Response(await asyncio.to_thread(cache.get, mode), media_type="application/json")
 
     @app.get("/api/status")
     def status():
+        scheduler.touch()
         conn = db.connect()
         try:
             refreshed = {
@@ -101,6 +103,8 @@ def create_app(run_scheduler: bool = True) -> FastAPI:
                 "refreshed": refreshed,
                 "intervals": {j.name: j.interval for j in JOBS},
                 "running": sorted(scheduler.running),
+                "viewer_active": scheduler.viewer_active,
+                "icons_missing": len(icons.missing(conn)),
                 "errors": scheduler.errors,
                 "snapshot_hours": {
                     "day": prices.snapshot_coverage(conn, 24),
@@ -166,6 +170,19 @@ def create_app(run_scheduler: bool = True) -> FastAPI:
             raise HTTPException(404, f"No hiscores entry for '{name}'")
         except Exception as exc:
             raise HTTPException(502, f"Hiscores lookup failed: {exc}")
+
+    @app.get("/icons/{item_id}.png")
+    def icon(item_id: int):
+        conn = db.connect()
+        try:
+            row = conn.execute("SELECT icon FROM items WHERE id = ?", (item_id,)).fetchone()
+        finally:
+            conn.close()
+        path = icons.path_for(row["icon"]) if row and row["icon"] else None
+        if path is None or not path.is_file():
+            # Not downloaded yet; the background icon job fetches it. Never proxy to the wiki here.
+            raise HTTPException(404, "Icon not cached yet")
+        return FileResponse(path, media_type="image/png", headers={"Cache-Control": "public, max-age=604800"})
 
     _mount_frontend(app)
     return app
