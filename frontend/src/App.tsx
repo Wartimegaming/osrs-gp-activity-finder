@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { fetchActivities, fetchPlayer, fetchStatus, refreshPrices } from './api'
+import { fetchActivities, fetchMarks, fetchPlayer, fetchStatus, refreshPrices, saveMark, type Mark, type Marks } from './api'
 import ActivityTable from './components/ActivityTable'
 import DetailPanel from './components/detail/DetailPanel'
 import FilterBar from './components/FilterBar'
@@ -30,6 +30,23 @@ export default function App() {
     staleTime: 5 * 60_000,
     retry: false,
   })
+  const marksQuery = useQuery({ queryKey: ['marks'], queryFn: fetchMarks, staleTime: Infinity })
+  const marks = useMemo(() => marksQuery.data ?? {}, [marksQuery.data])
+  const markMutation = useMutation({
+    mutationFn: ({ key, mark }: { key: string; mark: Mark | null }) => saveMark(key, mark),
+    onMutate: ({ key, mark }) => {
+      // Optimistic: the star/hide responds immediately; rolled back if the save fails.
+      const previous = queryClient.getQueryData<Marks>(['marks']) ?? {}
+      const next = { ...previous }
+      if (mark) next[key] = mark
+      else delete next[key]
+      queryClient.setQueryData(['marks'], next)
+      return { previous }
+    },
+    onError: (_e, _v, context) => context && queryClient.setQueryData(['marks'], context.previous),
+  })
+  const setMark = (key: string, mark: Mark | null) => markMutation.mutate({ key, mark })
+
   const refresh = useMutation({
     mutationFn: refreshPrices,
     onSettled: () => {
@@ -40,7 +57,7 @@ export default function App() {
 
   const all = useMemo(() => activities.data?.activities ?? [], [activities.data])
   const playerData = player.data ?? null
-  const visible = useMemo(() => applyFilters(all, settings, playerData), [all, settings, playerData])
+  const visible = useMemo(() => applyFilters(all, settings, playerData, marks), [all, settings, playerData, marks])
   const skills = useMemo(() => skillsIn(all), [all])
 
   const [selectedKey, openDetail, closeDetail] = useHashSelection()
@@ -73,12 +90,14 @@ export default function App() {
           <div className="empty">Loading activities…</div>
         ) : (
           <ActivityTable activities={visible} total={all.length} player={playerData}
-            selected={selectedKey} onSelect={openDetail} />
+            selected={selectedKey} onSelect={openDetail} marks={marks} onMark={setMark} />
         )}
       </main>
       {selectedKey && (
         <DetailPanel activity={selected} missing={!activities.isPending && !selected}
-          player={playerData} onClose={closeDetail} />
+          player={playerData} onClose={closeDetail}
+          mark={selectedKey ? marks[selectedKey] ?? null : null}
+          onMark={(mark) => selectedKey && setMark(selectedKey, mark)} />
       )}
     </div>
   )

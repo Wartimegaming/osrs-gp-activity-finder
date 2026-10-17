@@ -106,6 +106,17 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(body["points"][0]["high_volume"], 5000)
         self.assertEqual(self.client.get("/api/history/424242").status_code, 404)
 
+    def test_marks(self):
+        self.assertEqual(self.client.get("/api/marks").json(), {})
+        self.client.put("/api/marks", json={"key": "recipe:x", "mark": "favourite"})
+        self.client.put("/api/marks", json={"key": "alch:1", "mark": "hidden"})
+        self.client.put("/api/marks", json={"key": "alch:1", "mark": "favourite"})
+        self.assertEqual(self.client.get("/api/marks").json(), {"recipe:x": "favourite", "alch:1": "favourite"})
+        self.client.put("/api/marks", json={"key": "recipe:x", "mark": None})
+        self.assertEqual(self.client.get("/api/marks").json(), {"alch:1": "favourite"})
+        self.assertEqual(self.client.put("/api/marks", json={"key": "k", "mark": "loved"}).status_code, 422)
+        self.client.put("/api/marks", json={"key": "alch:1", "mark": None})
+
     def test_bad_mode(self):
         self.assertEqual(self.client.get("/api/activities?mode=greedy").status_code, 422)
 

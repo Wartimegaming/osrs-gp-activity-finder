@@ -7,11 +7,11 @@ from backend import db
 from backend.engine.model import Risk
 from backend.engine.ranking import Filters, SortKey, evaluate_all, rank
 from backend.engine.settings import PriceMode, Settings
-from backend.ingest import mapping, prices, recipes
+from backend.ingest import mapping, prices, recipes, sets
 
 
 def cmd_ingest(conn, args) -> None:
-    jobs = ["mapping", "latest", "hourly", "recipes"] if args.job == "all" else [args.job]
+    jobs = ["mapping", "latest", "hourly", "recipes", "sets"] if args.job == "all" else [args.job]
     for job in jobs:
         started = time.monotonic()
         if job == "mapping":
@@ -20,6 +20,9 @@ def cmd_ingest(conn, args) -> None:
             result = f"{prices.refresh_latest(conn)} prices"
         elif job == "hourly":
             result = f"{prices.refresh_hourly(conn)} item rows"
+        elif job == "sets":
+            stats = sets.refresh(conn)
+            result = f"{stats['sets']} sets with {stats['components']} pieces"
         else:
             stats = recipes.refresh(conn)
             result = (
@@ -73,7 +76,8 @@ def _gp(value: float | None) -> str:
 def cmd_rank(conn, args) -> None:
     settings = Settings(price_mode=PriceMode(args.mode))
     filters = Filters(
-        types=frozenset(args.type or ()),
+        # Flipping is passive GE-offer time, not comparable with active methods: opt in with --type flip.
+        types=frozenset(args.type or ("recipe", "alch", "decant", "set")),
         f2p_only=args.f2p,
         include_illiquid=args.include_illiquid,
         max_risk=Risk(args.max_risk) if args.max_risk else None,
@@ -113,7 +117,7 @@ def main(argv: list[str] | None = None) -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     ingest = sub.add_parser("ingest", help="refresh data from the wiki")
-    ingest.add_argument("job", choices=["all", "mapping", "latest", "hourly", "recipes"])
+    ingest.add_argument("job", choices=["all", "mapping", "latest", "hourly", "recipes", "sets"])
     ingest.set_defaults(func=cmd_ingest)
 
     backfill = sub.add_parser("backfill", help="fetch missing historical hourly snapshots")
@@ -129,7 +133,7 @@ def main(argv: list[str] | None = None) -> None:
     ranking.add_argument("--top", type=int, default=25)
     ranking.add_argument("--mode", choices=[m.value for m in PriceMode], default="instant")
     ranking.add_argument("--sort", choices=[k.value for k in SortKey], default="gp_hr")
-    ranking.add_argument("--type", action="append", choices=["recipe", "alch"])
+    ranking.add_argument("--type", action="append", choices=["recipe", "alch", "flip", "decant", "set"])
     ranking.add_argument("--f2p", action="store_true", help="free-to-play methods only")
     ranking.add_argument("--max-risk", choices=[r.value for r in Risk])
     ranking.add_argument("--include-illiquid", action="store_true")

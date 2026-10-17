@@ -57,6 +57,8 @@ class ActivitySpec:
     actions_per_trip: int | None = None  # None: nothing to bank, actions run back to back
     trip_overhead_ticks: int = 0  # banking and walking per trip
     fixed_rate: float | None = None  # actions/hour override; skips the tick model
+    passive: bool = False  # GE offers and clerk exchanges: no speed cap, only buy limits and volume
+    price_mode: PriceMode | None = None  # overrides the user's mode (flips always buy low, sell high)
     members: bool = True
     skills: tuple[tuple[str, int | None], ...] = ()
     variant: str | None = None
@@ -123,8 +125,8 @@ class Result:
         return self.gp_hr is not None
 
 
-def ge_tax(price: float, settings: Settings) -> int:
-    if price < settings.tax.exempt_below:
+def ge_tax(price: float, settings: Settings, item_id: int | None = None) -> int:
+    if price < settings.tax.exempt_below or item_id in settings.tax.exempt_items:
         return 0
     return min(math.floor(price * settings.tax.rate), settings.tax.cap)
 
@@ -153,7 +155,7 @@ def _day_price(item: ItemMarket, buying: bool, mode: PriceMode) -> float | None:
 
 
 def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
-    mode = settings.price_mode
+    mode = spec.price_mode or settings.price_mode
     inputs, outputs, trade_times = [], [], []
     day_cost = day_revenue = 0.0
     day_known = True
@@ -177,7 +179,7 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
         elif buying:
             day_cost += day * leg.quantity
         else:
-            day_revenue += (day - ge_tax(day, settings)) * leg.quantity
+            day_revenue += (day - ge_tax(day, settings, leg.item_id)) * leg.quantity
         return PricedLeg(
             leg.name, leg.item_id, leg.quantity, leg.kind, price, item.daily_volume,
             settings.min_daily_volume(price or 0), item.buy_limit,
@@ -200,7 +202,7 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
 
     # Per action
     result.input_cost = sum(leg.total for leg in inputs)
-    result.tax = sum(ge_tax(leg.price, settings) * leg.quantity for leg in outputs)
+    result.tax = sum(ge_tax(leg.price, settings, leg.item_id) * leg.quantity for leg in outputs)
     result.gross_revenue = sum(leg.total for leg in outputs) + spec.fixed_revenue
     result.profit = result.gross_revenue - result.tax - result.input_cost
     if result.input_cost > 0:
@@ -226,23 +228,31 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
     if spec.ticks_estimated:
         result.flags.add(Flag.ESTIMATED_RATE)
     result.actions_per_hour = actions_per_hour(spec, settings)
-    if spec.fixed_rate is None:
+    if spec.fixed_rate is None and not spec.passive:
         result.efficiency = spec.efficiency if spec.efficiency is not None else settings.efficiency
     if result.actions_per_hour is None:
         result.flags.add(Flag.NO_RATE)
         return result
 
-    caps = [Cap(Limit.SPEED, result.actions_per_hour)]
+    caps = [] if spec.passive else [Cap(Limit.SPEED, result.actions_per_hour)]
     for leg in inputs:
         if leg.kind == "item" and leg.buy_limit and leg.quantity > 0:
             caps.append(Cap(Limit.BUY_LIMIT, leg.buy_limit / BUY_LIMIT_WINDOW_HOURS / leg.quantity, leg.name))
+    seen: set[int] = set()
     for leg in item_legs:
-        if leg.quantity > 0:
+        if leg.quantity > 0 and leg.item_id not in seen:  # a flip buys and sells the same item
+            seen.add(leg.item_id)
             hourly_volume = leg.daily_volume / 24
             caps.append(Cap(Limit.LIQUIDITY, settings.liquidity_share * hourly_volume / leg.quantity, leg.name))
     result.caps = caps
+    if not caps:  # passive and nothing tradeable to limit it: can't rate it
+        result.actions_per_hour = None
+        result.flags.add(Flag.NO_RATE)
+        return result
     binding = min(caps, key=lambda cap: cap.actions_per_hour)
     result.effective_actions, result.limiting_factor = binding.actions_per_hour, binding.limit
+    if spec.passive:
+        result.actions_per_hour = result.effective_actions
 
     result.gp_hr_raw = result.profit * result.actions_per_hour
     result.gp_hr = result.profit * result.effective_actions
@@ -260,6 +270,8 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
 
 
 def actions_per_hour(spec: ActivitySpec, settings: Settings) -> float | None:
+    if spec.passive:
+        return math.inf  # replaced by the binding cap once caps are known
     if spec.fixed_rate is not None:
         return spec.fixed_rate
     if not spec.ticks:

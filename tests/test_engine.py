@@ -45,6 +45,7 @@ class TaxTest(unittest.TestCase):
         self.assertEqual(ge_tax(50, S), 1)
         self.assertEqual(ge_tax(1_234, S), 24)
         self.assertEqual(ge_tax(1_000_000_000, S), 5_000_000)
+        self.assertEqual(ge_tax(12_000_000, S, item_id=13190), 0)  # bonds are exempt
 
 
 class ProfitTest(unittest.TestCase):

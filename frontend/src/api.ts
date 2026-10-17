@@ -1,4 +1,7 @@
 export type PriceMode = 'instant' | 'patient' | 'average'
+export type ActivityType = 'recipe' | 'alch' | 'flip' | 'decant' | 'set'
+export type Mark = 'favourite' | 'hidden'
+export type Marks = Record<string, Mark>
 export type Risk = 'low' | 'medium' | 'high'
 export type Flag =
   | 'stale_price'
@@ -33,7 +36,7 @@ export interface Cap {
 
 export interface Activity {
   key: string
-  type: 'recipe' | 'alch'
+  type: ActivityType
   name: string
   variant: string | null
   wiki_url: string | null
@@ -134,4 +137,11 @@ export const fetchPlayer = (name: string) =>
   request<Player>(`/api/hiscores?name=${encodeURIComponent(name)}`)
 export const fetchHistory = (itemId: number, hours = 168) =>
   request<History>(`/api/history/${itemId}?hours=${hours}`)
+export const fetchMarks = () => request<Marks>('/api/marks')
+export const saveMark = (key: string, mark: Mark | null) =>
+  request<{ key: string; mark: Mark | null }>('/api/marks', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, mark }),
+  })
 export const refreshPrices = () => request<{ ok: boolean; error: string | null }>('/api/refresh', { method: 'POST' })

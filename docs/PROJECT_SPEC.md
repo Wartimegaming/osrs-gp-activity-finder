@@ -31,8 +31,8 @@ time spent, constraints.
 |---|------|---------|----------|
 | A | **Recipe processing**: buy every input, craft, sell the output | Molten glass → Unpowered orb; unf potions; fletching; smithing; cooking | **MVP** |
 | B | **Buy & high alch**: buy an item, cast High Level Alchemy | Rune items, battlestaves | MVP |
-| C | **GE flipping**: buy at the instant-sell price, sell at the instant-buy price | Any liquid item with a wide margin | Phase 2 |
-| D | **Zero-time conversions**: item sets, decanting, noting/un-noting | Armour sets ↔ pieces, potion (4) ↔ (3) | Phase 2 |
+| C | **GE flipping**: buy at the instant-sell price, sell at the instant-buy price | Any liquid item with a wide margin | Phase 2 ✓ |
+| D | **Zero-time conversions**: item sets, decanting | Armour sets ↔ pieces, potion (4) ↔ (3) | Phase 2 ✓ |
 | E | **Shop → GE arbitrage**: buy from an NPC shop, sell on the GE | Feathers, runes, seeds | Phase 3 (needs shop data) |
 
 Activities in a chain (e.g. sand + soda ash → molten glass → orb → battlestaff) are first
@@ -80,7 +80,14 @@ locally. Refresh weekly, or by hand after game updates.
 that don't match `/mapping` exactly. These are handled by a hand-maintained
 `overrides.toml` (ticks, actions/hour, exclusions, name aliases).
 
-### 3.3 Hiscores (MVP)
+### 3.3 Item sets (Phase 2)
+
+The wiki has no structured data for set contents. Each set's page lists its pieces under
+`==Components==` as `{{CostLine|Item}}` lines, so the page wikitext for every GE item named
+"… set" is fetched in batches of 50 titles (3 requests) and parsed. Refreshed weekly.
+All 129 sets parsed and every piece matched a GE item (2026-10-17).
+
+### 3.4 Hiscores (MVP)
 
 `https://secure.runescape.com/m=hiscore_oldschool/index_lite.json?player=<name>` returns a
 player's skill levels as JSON (verified 2026-10-17). The user enters their name in the UI and
@@ -97,7 +104,7 @@ gross_output = output_qty × sell_price(output)
 ge_tax       = min(floor(0.02 × sell_price), 5,000,000) per item, 0 if sell_price < 50
 profit       = gross_output − output_qty × ge_tax − input_cost
 ```
-Tax rule (2%, 5M cap, exempt under 50 gp) is kept in config because Jagex changes it.
+Tax rule (2%, 5M cap, exempt under 50 gp, exempt items such as Old school bonds) is kept in config because Jagex changes it.
 
 ### 4.2 Price modes (user-selectable)
 - **Instant** (default, conservative): buy at `high`, sell at `low`.
@@ -179,6 +186,28 @@ The table shows ROI, capital per hour and the risk badge. It can sort on
 **risk-adjusted GP/hr** (`effective_gp_hr × min(1, breakeven_move / volatility)`) as well as
 raw GP/hr, so "100m to make 1m" methods drop down the list without being hidden.
 
+### 4.8 Phase 2 activity rules
+
+All three are **passive**: no skilling time, so there is no speed cap. Their rate is the lower
+of the buy-limit and market-volume caps.
+
+- **Flipping** always uses patient prices (buy at instant-sell, sell at instant-buy),
+  whatever the selected mode. Both sides must have traded in the last 30 minutes; one stale
+  side makes a fake spread. Flips are **opt-in**: the default "All active methods" view and the
+  CLI leave them out, because hours of open GE offers aren't comparable with an hour of play.
+- **Decanting** (Bob Barter): potion families are items named `Name(n)` with doses up to 4 whose
+  examine text mentions "dose"; barbarian mixes are excluded, and `[decant]` in
+  `overrides.toml` adds or removes families. One action converts `lcm(a, b)` doses; when it
+  produces more potions than it consumes, the extra empty vials are bought.
+- **Item sets**: both directions, combining pieces into a set and splitting a set into its pieces,
+  at the GE clerk. Sets with any piece that isn't on the GE are skipped.
+
+### 4.9 Favourites and hidden
+
+Stored in the local database (`user_marks`) so they survive browser data being cleared.
+Hidden methods drop out of the table unless "Show hidden" is on; "Favourites only" narrows to
+starred methods.
+
 ## 5. Web UI (localhost)
 
 ### 5.1 Main table: ranked activities
@@ -208,7 +237,7 @@ Controls:
 - Default price mode, efficiency, liquidity share, staleness threshold
 - Volume threshold table (4.5) and risk thresholds (4.6)
 - Remembered player name
-- Favourites and hidden activities
+- Favourites and hidden activities (stored server-side, see 4.9)
 
 ## 6. Proposed Architecture
 
@@ -265,7 +294,7 @@ tests/
 | **M2: Engine** | Recipe and high-alch profit model, limits, volume filter, risk model, flags, unit tests | CLI prints top 25 activities by effective GP/hr with risk |
 | **M3: Web UI MVP** | Ranked table, filters, F2P tag, price mode, auto-refresh, hiscores lookup | Usable at `localhost:8000` |
 | **M4: Detail view** | Breakdown, charts, wiki links | Click-through works for every row |
-| **M5: Phase 2** | GE flipping, item sets/decanting, favourites | |
+| **M5: Phase 2** | GE flipping, item sets/decanting, favourites | Done 2026-10-17 |
 | **M6: Phase 3** | Multi-step chains, shop arbitrage, historical "consistently profitable" score | |
 
 ## 8. Risks

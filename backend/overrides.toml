@@ -23,3 +23,9 @@
 [stackable]
 add = []
 remove = []
+
+# Potion families Bob Barter can decant are detected from examine text ("3 doses of ...").
+# Family name = item name without the dose, e.g. "Prayer potion".
+[decant]
+include = ["Guthix rest"]
+exclude = []

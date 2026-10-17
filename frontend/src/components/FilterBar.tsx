@@ -1,5 +1,5 @@
 import type { Risk } from '../api'
-import type { Settings } from '../filters'
+import { TYPE_OPTIONS, type Settings } from '../filters'
 
 interface Props {
   settings: Settings
@@ -14,9 +14,7 @@ export default function FilterBar({ settings: s, skills, onChange, onReset }: Pr
       <input className="search" type="search" placeholder="Search items…" value={s.search}
         onChange={(e) => onChange({ search: e.target.value })} />
       <select value={s.type} onChange={(e) => onChange({ type: e.target.value as Settings['type'] })} aria-label="Type">
-        <option value="all">All types</option>
-        <option value="recipe">Processing</option>
-        <option value="alch">High alchemy</option>
+        {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
       </select>
       <select value={s.skill} onChange={(e) => onChange({ skill: e.target.value })} aria-label="Skill">
         <option value="all">All skills</option>
@@ -38,6 +36,14 @@ export default function FilterBar({ settings: s, skills, onChange, onReset }: Pr
       <label className="check" title="Profitable methods with no reliable rate (e.g. Runecraft, unknown ticks)">
         <input type="checkbox" checked={s.showUnrated} onChange={(e) => onChange({ showUnrated: e.target.checked })} />
         Show unrated
+      </label>
+      <label className="check">
+        <input type="checkbox" checked={s.favouritesOnly} onChange={(e) => onChange({ favouritesOnly: e.target.checked })} />
+        Favourites only
+      </label>
+      <label className="check">
+        <input type="checkbox" checked={s.showHidden} onChange={(e) => onChange({ showHidden: e.target.checked })} />
+        Show hidden
       </label>
       <button className="button ghost" onClick={onReset}>Reset</button>
     </section>

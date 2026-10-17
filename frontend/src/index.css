@@ -300,3 +300,14 @@ code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; background: va
   .breakdown tbody td:first-child { white-space: normal; }
   .breakdown .item-cell img { display: none; }
 }
+
+/* Favourites and hidden */
+.star {
+  flex: none; width: 22px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer;
+  font-size: 16px; line-height: 1; color: var(--muted); border-radius: 4px;
+}
+.star:hover { color: var(--accent); }
+.star.on { color: var(--accent); }
+.detail-head h2 .star { font-size: 20px; vertical-align: -2px; }
+tr.hidden-row td { opacity: 0.45; }
+.button.small { font-size: 12px; padding: 2px 8px; }

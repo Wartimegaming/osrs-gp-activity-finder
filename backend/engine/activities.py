@@ -1,12 +1,14 @@
 """Builds ActivitySpecs for each activity type from the database and market."""
 
+import math
+import re
 import sqlite3
 from collections import defaultdict
 
 from backend.engine import inventory
 from backend.engine.market import Market
 from backend.engine.model import ActivitySpec, Leg
-from backend.engine.settings import Settings
+from backend.engine.settings import PriceMode, Settings
 from backend.ingest.recipes import Overrides
 
 
@@ -89,4 +91,103 @@ def alch_specs(market: Market, settings: Settings) -> list[ActivitySpec]:
             skills=(("Magic", 55),),
             tools="Staff of fire",
         ))
+    return specs
+
+
+def flip_specs(market: Market, settings: Settings) -> list[ActivitySpec]:
+    """Buy with an offer at the instant-sell price, sell with an offer at the instant-buy price."""
+    fresh_after = market.now - settings.stale_minutes * 60
+    specs = []
+    for item in market.items.values():
+        if item.high is None or item.low is None or item.high <= item.low:
+            continue
+        # A margin is only real if both sides traded recently; one old price makes a fake spread.
+        if min(item.high_time or 0, item.low_time or 0) < fresh_after:
+            continue
+        specs.append(ActivitySpec(
+            key=f"flip:{item.id}",
+            type="flip",
+            name=item.name,
+            wiki_page=item.name,
+            inputs=(Leg(item.name, item.id, 1),),
+            outputs=(Leg(item.name, item.id, 1),),
+            passive=True,
+            price_mode=PriceMode.PATIENT,
+            members=False,  # GE trading is free-to-play; item membership is checked separately
+            note="Buy and sell offers must fill; the margin can close before they do.",
+        ))
+    return specs
+
+
+_DOSE = re.compile(r"^(?P<family>.+?) ?\((?P<dose>\d)\)$")
+
+
+def potion_families(conn: sqlite3.Connection, overrides: Overrides) -> dict[str, dict[int, int]]:
+    """Family name -> {dose: item id}, for potions Bob Barter can decant."""
+    families: dict[str, dict[int, int]] = defaultdict(dict)
+    is_potion: dict[str, bool] = defaultdict(bool)
+    for row in conn.execute("SELECT id, name, examine FROM items"):
+        match = _DOSE.match(row["name"])
+        if not match:
+            continue
+        family = match["family"]
+        families[family][int(match["dose"])] = row["id"]
+        is_potion[family] |= "dose" in (row["examine"] or "").lower()
+    return {
+        family: doses for family, doses in families.items()
+        if len(doses) > 1 and max(doses) <= 4
+        and (is_potion[family] or family in overrides.decant_include)
+        and family not in overrides.decant_exclude
+        and not family.lower().endswith("mix")  # barbarian mixes can't be decanted
+    }
+
+
+def decant_specs(
+    conn: sqlite3.Connection, market: Market, settings: Settings, overrides: Overrides | None = None
+) -> list[ActivitySpec]:
+    """Buy one dose size and have Bob Barter decant it into another, then sell."""
+    overrides = overrides or Overrides.load()
+    vial = market.get(settings.vial_id)
+    specs = []
+    for family, doses in potion_families(conn, overrides).items():
+        for a, a_id in doses.items():
+            for b, b_id in doses.items():
+                if a == b or market.get(a_id) is None or market.get(b_id) is None:
+                    continue
+                total = math.lcm(a, b)  # doses per action
+                bought, made = total // a, total // b
+                inputs = [Leg(market.get(a_id).name, a_id, bought)]
+                if made > bought and vial is not None:  # more potions out than in: supply the vials
+                    inputs.append(Leg(vial.name, vial.id, made - bought))
+                specs.append(ActivitySpec(
+                    key=f"decant:{a_id}:{b_id}",
+                    type="decant",
+                    name=f"{family}({a}) → ({b})",
+                    variant=f"{bought} × ({a}) → {made} × ({b})",
+                    wiki_page="Bob Barter (herbs)",
+                    inputs=tuple(inputs),
+                    outputs=(Leg(market.get(b_id).name, b_id, made),),
+                    passive=True,
+                    members=False,
+                    facilities="Bob Barter (Grand Exchange)",
+                ))
+    return specs
+
+
+def set_specs(conn: sqlite3.Connection, market: Market) -> list[ActivitySpec]:
+    """Exchange pieces for a set at the GE clerk, or a set for its pieces."""
+    pieces = defaultdict(list)
+    for row in conn.execute("SELECT * FROM item_sets ORDER BY set_id, position"):
+        pieces[row["set_id"]].append(Leg(row["name"], row["item_id"], row["quantity"]))
+    specs = []
+    for set_id, legs in pieces.items():
+        item = market.get(set_id)
+        if item is None or any(leg.item_id is None for leg in legs):
+            continue
+        whole = (Leg(item.name, item.id, 1),)
+        common = dict(wiki_page=item.name, passive=True, members=False, facilities="Grand Exchange clerk")
+        specs.append(ActivitySpec(key=f"set:combine:{set_id}", type="set", name=item.name,
+                                  variant="Combine pieces into the set", inputs=tuple(legs), outputs=whole, **common))
+        specs.append(ActivitySpec(key=f"set:split:{set_id}", type="set", name=item.name,
+                                  variant="Split the set into pieces", inputs=whole, outputs=tuple(legs), **common))
     return specs

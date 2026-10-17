@@ -79,6 +79,23 @@ CREATE TABLE IF NOT EXISTS recipe_skills (
     PRIMARY KEY (recipe_key, skill)
 );
 
+-- GE item sets: which pieces a set exchanges for at the Grand Exchange clerk.
+CREATE TABLE IF NOT EXISTS item_sets (
+    set_id      INTEGER NOT NULL,
+    position    INTEGER NOT NULL,
+    name        TEXT NOT NULL,
+    item_id     INTEGER,            -- NULL when the piece isn't on the GE
+    quantity    INTEGER NOT NULL,
+    PRIMARY KEY (set_id, position)
+);
+
+-- The user's favourites and hidden activities, keyed by activity key.
+CREATE TABLE IF NOT EXISTS user_marks (
+    activity_key TEXT PRIMARY KEY,
+    mark         TEXT NOT NULL CHECK (mark IN ('favourite', 'hidden')),
+    updated_at   INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL

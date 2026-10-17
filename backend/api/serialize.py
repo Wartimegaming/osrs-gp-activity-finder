@@ -82,7 +82,7 @@ def result(r: Result, market: Market, settings: Settings) -> dict:
         "day_profit": r.day_profit,
         "caps": [{"limit": c.limit, "actions_per_hour": c.actions_per_hour, "item": c.item} for c in r.caps],
         "assumptions": {
-            "price_mode": settings.price_mode,
+            "price_mode": spec.price_mode or settings.price_mode,
             "ticks_estimated": spec.ticks_estimated,
             "trip_overhead_ticks": spec.trip_overhead_ticks if spec.actions_per_trip else None,
             "efficiency": r.efficiency,

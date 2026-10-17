@@ -8,8 +8,8 @@ import {
   type SortingState,
 } from '@tanstack/react-table'
 import { useState } from 'react'
-import type { Activity, Player } from '../api'
-import { missingLevels } from '../filters'
+import type { Activity, Mark, Marks, Player } from '../api'
+import { missingLevels, TYPE_LABEL } from '../filters'
 import { age, exact, gp, percent } from '../format'
 import { FLAGS } from './flags'
 
@@ -23,21 +23,38 @@ const col = createColumnHelper<Activity>()
 const nullsLast = { sortUndefined: 'last' as const, sortDescFirst: true }
 const num = (v: number | null) => v ?? undefined
 
-function columns(player: Player | null) {
+export function StarButton({ mark, onMark, name }: { mark: Mark | undefined | null; onMark: (m: Mark | null) => void; name: string }) {
+  const on = mark === 'favourite'
+  return (
+    <button className={`star ${on ? 'on' : ''}`} aria-pressed={on}
+      aria-label={on ? `Remove ${name} from favourites` : `Add ${name} to favourites`}
+      title={on ? 'Remove from favourites' : 'Add to favourites'}
+      onClick={(e) => { e.stopPropagation(); onMark(on ? null : 'favourite') }}
+      onKeyDown={(e) => e.stopPropagation()}>
+      {on ? '★' : '☆'}
+    </button>
+  )
+}
+
+function columns(player: Player | null, marks: Marks, onMark: (key: string, mark: Mark | null) => void) {
   return [
     col.accessor('name', {
       header: 'Activity',
       sortDescFirst: false,
       cell: ({ row: { original: a } }) => (
         <div className="activity">
+          <StarButton mark={marks[a.key]} name={a.name} onMark={(m) => onMark(a.key, m)} />
           {a.icon ? <img src={a.icon} alt="" loading="lazy" width={24} height={24} /> : <span className="icon-gap" />}
           <div>
             <div className="activity-name">
               <span>{a.name}</span>
               {a.f2p && <span className="tag f2p" title="Free-to-play: recipe and every item are F2P">F2P</span>}
+              {marks[a.key] === 'hidden' && <span className="tag neutral">Hidden</span>}
             </div>
             <div className="activity-sub">
-              {a.type === 'alch' ? 'High alchemy' : a.variant ?? a.facilities ?? 'Processing'}
+              {a.type === 'recipe' ? a.variant ?? a.facilities ?? 'Processing'
+                : a.type === 'alch' || a.type === 'flip' ? TYPE_LABEL[a.type]
+                : `${TYPE_LABEL[a.type]} · ${a.variant}`}
             </div>
           </div>
         </div>
@@ -129,9 +146,11 @@ interface Props {
   player: Player | null
   selected: string | null
   onSelect: (key: string) => void
+  marks: Marks
+  onMark: (key: string, mark: Mark | null) => void
 }
 
-export default function ActivityTable({ activities, total, player, selected, onSelect }: Props) {
+export default function ActivityTable({ activities, total, player, selected, onSelect, marks, onMark }: Props) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'gp_hr', desc: true }])
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   // Filters can shrink the list under the current page; clamp instead of showing an empty page.
@@ -139,7 +158,7 @@ export default function ActivityTable({ activities, total, player, selected, onS
   const page = Math.min(pagination.pageIndex, pageCount - 1)
   const table = useReactTable({
     data: activities,
-    columns: columns(player),
+    columns: columns(player, marks, onMark),
     state: { sorting, pagination: { ...pagination, pageIndex: page } },
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
@@ -182,7 +201,11 @@ export default function ActivityTable({ activities, total, player, selected, onS
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <tr key={row.id} tabIndex={0} aria-label={`${row.original.name}: open details`}
-                className={[missingLevels(row.original, player).length ? 'locked' : '', row.id === selected ? 'selected' : ''].join(' ')}
+                className={[
+                  missingLevels(row.original, player).length ? 'locked' : '',
+                  row.id === selected ? 'selected' : '',
+                  marks[row.id] === 'hidden' ? 'hidden-row' : '',
+                ].join(' ')}
                 onClick={() => onSelect(row.id)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(row.id) } }}>
                 {row.getVisibleCells().map((cell) => {

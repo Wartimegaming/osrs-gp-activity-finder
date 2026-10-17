@@ -8,6 +8,7 @@ from enum import StrEnum
 from backend.engine import activities, market as market_mod
 from backend.engine.model import Result, Risk, evaluate
 from backend.engine.settings import Settings
+from backend.ingest.recipes import Overrides
 
 
 class SortKey(StrEnum):
@@ -42,7 +43,14 @@ def evaluate_all(
     market: market_mod.Market | None = None,
 ) -> list[Result]:
     market = market or market_mod.load(conn, now or int(time.time()))
-    specs = activities.recipe_specs(conn, settings) + activities.alch_specs(market, settings)
+    overrides = Overrides.load()
+    specs = (
+        activities.recipe_specs(conn, settings, overrides)
+        + activities.alch_specs(market, settings)
+        + activities.flip_specs(market, settings)
+        + activities.decant_specs(conn, market, settings, overrides)
+        + activities.set_specs(conn, market)
+    )
     return [evaluate(spec, market, settings) for spec in specs]
 
 

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { fetchHistory, type Activity, type Leg, type Player } from '../../api'
-import { missingLevels } from '../../filters'
+import { fetchHistory, type Activity, type Leg, type Mark, type Player } from '../../api'
+import { missingLevels, TYPE_LABEL } from '../../filters'
+import { StarButton } from '../ActivityTable'
 import { age, exact, gp, percent } from '../../format'
 import { FLAGS } from '../flags'
 import PriceChart from './PriceChart'
@@ -36,11 +37,16 @@ interface Props {
   missing: boolean // the selected key is no longer in the current results
   player: Player | null
   onClose: () => void
+  mark: Mark | null
+  onMark: (mark: Mark | null) => void
 }
 
-export default function DetailPanel({ activity: a, missing, player, onClose }: Props) {
+export default function DetailPanel({ activity: a, missing, player, onClose, mark, onMark }: Props) {
   const panel = useRef<HTMLDivElement>(null)
-  const chartItems = a ? [...a.outputs, ...a.inputs].filter((l) => l.kind === 'item' && l.item_id != null) : []
+  const chartItems = a
+    ? [...a.outputs, ...a.inputs].filter((l, i, all) =>
+        l.kind === 'item' && l.item_id != null && all.findIndex((o) => o.item_id === l.item_id) === i)
+    : []
   const [chartItem, setChartItem] = useState<number | null>(null)
   const itemId = chartItem != null && chartItems.some((l) => l.item_id === chartItem) ? chartItem : chartItems[0]?.item_id ?? null
   const history = useQuery({
@@ -70,13 +76,18 @@ export default function DetailPanel({ activity: a, missing, player, onClose }: P
             <header className="detail-head">
               {a.icon && <img src={a.icon} alt="" width={36} height={36} />}
               <div>
-                <h2>{a.name}</h2>
+                <h2><StarButton mark={mark} name={a.name} onMark={onMark} /> {a.name}</h2>
                 <div className="muted">
-                  {a.type === 'alch' ? 'High alchemy' : [...new Set([a.variant, a.facilities].filter(Boolean))].join(' · ') || 'Processing'}
+                  {a.type === 'recipe'
+                    ? [...new Set([a.variant, a.facilities].filter(Boolean))].join(' · ') || 'Processing'
+                    : [TYPE_LABEL[a.type], a.variant, a.facilities].filter(Boolean).join(' · ')}
                   {a.wiki_url && <> · <a href={a.wiki_url} target="_blank" rel="noreferrer">Wiki ↗</a></>}
                 </div>
                 <div className="detail-tags">
                   {a.f2p && <span className="tag f2p">F2P</span>}
+                  <button className="button ghost small" onClick={() => onMark(mark === 'hidden' ? null : 'hidden')}>
+                    {mark === 'hidden' ? 'Unhide' : 'Hide this method'}
+                  </button>
                   {a.risk && <span className={`risk ${a.risk}`}>{a.risk} risk</span>}
                   {a.skills.map(({ skill, level }) => {
                     const lacking = missingLevels(a, player).includes(`${skill} ${level}`)
@@ -188,7 +199,9 @@ export default function DetailPanel({ activity: a, missing, player, onClose }: P
                 <dt>Prices</dt><dd>{MODE_TEXT[a.assumptions.price_mode]} Oldest price used last traded {age(a.price_age)} ago.</dd>
                 <dt>Speed</dt>
                 <dd>
-                  {a.assumptions.fixed_rate != null
+                  {a.type === 'flip' || a.type === 'decant' || a.type === 'set'
+                    ? 'No skilling time: limited only by buy limits and how much the market trades.'
+                    : a.assumptions.fixed_rate != null
                     ? `${exact(a.assumptions.fixed_rate)} actions/hr, set in overrides.toml.`
                     : a.ticks == null
                       ? 'Unknown: the wiki has no tick count for this method.'

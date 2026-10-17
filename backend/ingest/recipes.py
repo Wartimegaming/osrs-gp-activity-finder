@@ -22,6 +22,8 @@ class Overrides:
     recipes: dict[str, dict] = field(default_factory=dict)  # page_name_sub -> fields
     stackable_add: set[str] = field(default_factory=set)
     stackable_remove: set[str] = field(default_factory=set)
+    decant_include: set[str] = field(default_factory=set)  # potion family names
+    decant_exclude: set[str] = field(default_factory=set)
 
     @classmethod
     def load(cls, path: Path = config.OVERRIDES_PATH) -> "Overrides":
@@ -30,7 +32,10 @@ class Overrides:
         with path.open("rb") as f:
             raw = tomllib.load(f)
         stackable = raw.get("stackable", {})
+        decant = raw.get("decant", {})
         return cls(
+            decant_include=set(decant.get("include", [])),
+            decant_exclude=set(decant.get("exclude", [])),
             aliases=raw.get("aliases", {}),
             recipes={r["key"]: r for r in raw.get("recipe", [])},
             stackable_add=set(stackable.get("add", [])),

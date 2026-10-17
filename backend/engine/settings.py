@@ -18,6 +18,7 @@ class TaxRule:
     rate: float = 0.02
     cap: int = 5_000_000
     exempt_below: int = 50  # items selling under this price pay no tax
+    exempt_items: frozenset[int] = frozenset({13190})  # Old school bond
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,7 @@ class Settings:
     alch_ticks: int = 5
     alch_efficiency: float = 1.0  # no banking needed
     nature_rune_id: int = 561
+    vial_id: int = 229  # empty vial, needed when decanting into more potions
     extra: dict = field(default_factory=dict)
 
     def min_daily_volume(self, price: float) -> int:

@@ -6,7 +6,10 @@ import threading
 import time
 from pathlib import Path
 
+from typing import Literal
+
 from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,6 +23,11 @@ from backend.engine.settings import PriceMode, Settings
 from backend.ingest import prices
 
 FRONTEND_DIST = config.ROOT / "frontend" / "dist"
+
+
+class MarkUpdate(BaseModel):
+    key: str
+    mark: Literal["favourite", "hidden"] | None  # None clears the mark
 
 
 class ResultCache:
@@ -115,6 +123,31 @@ def create_app(run_scheduler: bool = True) -> FastAPI:
         finally:
             conn.close()
         return {"item_id": item_id, "hours": hours, "newest": newest, "points": [dict(r) for r in rows]}
+
+    @app.get("/api/marks")
+    def marks():
+        conn = db.connect()
+        try:
+            return {r["activity_key"]: r["mark"] for r in conn.execute("SELECT * FROM user_marks")}
+        finally:
+            conn.close()
+
+    @app.put("/api/marks")
+    def set_mark(update: MarkUpdate):
+        conn = db.connect()
+        try:
+            with conn:
+                if update.mark is None:
+                    conn.execute("DELETE FROM user_marks WHERE activity_key = ?", (update.key,))
+                else:
+                    conn.execute(
+                        "INSERT INTO user_marks (activity_key, mark, updated_at) VALUES (?, ?, ?) "
+                        "ON CONFLICT(activity_key) DO UPDATE SET mark = excluded.mark, updated_at = excluded.updated_at",
+                        (update.key, update.mark, int(time.time())),
+                    )
+            return {"key": update.key, "mark": update.mark}
+        finally:
+            conn.close()
 
     @app.post("/api/refresh")
     async def refresh():

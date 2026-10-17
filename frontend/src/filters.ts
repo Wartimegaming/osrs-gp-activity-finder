@@ -1,9 +1,32 @@
-import type { Activity, Player, PriceMode, Risk } from './api'
+import type { Activity, ActivityType, Marks, Player, PriceMode, Risk } from './api'
+
+/** 'active' is every method you play through; flipping is passive offer time, so it's opt-in. */
+export type TypeFilter = 'active' | 'everything' | ActivityType
+
+export const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
+  { value: 'active', label: 'All active methods' },
+  { value: 'recipe', label: 'Processing' },
+  { value: 'alch', label: 'High alchemy' },
+  { value: 'decant', label: 'Decanting' },
+  { value: 'set', label: 'Item sets' },
+  { value: 'flip', label: 'Flipping' },
+  { value: 'everything', label: 'Everything (incl. flipping)' },
+]
+
+export const TYPE_LABEL: Record<ActivityType, string> = {
+  recipe: 'Processing', alch: 'High alchemy', flip: 'GE flip', decant: 'Decanting', set: 'Item set',
+}
+
+function typeMatches(filter: TypeFilter | 'all', type: ActivityType): boolean {
+  if (filter === 'everything') return true
+  if (filter === 'active' || filter === 'all') return type !== 'flip' // 'all' = setting saved before flips existed
+  return filter === type
+}
 
 export interface Settings {
   mode: PriceMode
   search: string
-  type: 'all' | 'recipe' | 'alch'
+  type: TypeFilter
   skill: string
   f2pOnly: boolean
   maxRisk: Risk
@@ -11,12 +34,14 @@ export interface Settings {
   showUnrated: boolean
   onlyDoable: boolean
   playerName: string
+  favouritesOnly: boolean
+  showHidden: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   mode: 'instant',
   search: '',
-  type: 'all',
+  type: 'active',
   skill: 'all',
   f2pOnly: false,
   maxRisk: 'high',
@@ -24,6 +49,8 @@ export const DEFAULT_SETTINGS: Settings = {
   showUnrated: false,
   onlyDoable: true,
   playerName: '',
+  favouritesOnly: false,
+  showHidden: false,
 }
 
 const RISK_ORDER: Risk[] = ['low', 'medium', 'high']
@@ -36,12 +63,15 @@ export function missingLevels(activity: Activity, player: Player | null): string
     .map(({ skill, level }) => `${skill} ${level}`)
 }
 
-export function applyFilters(activities: Activity[], s: Settings, player: Player | null): Activity[] {
+export function applyFilters(activities: Activity[], s: Settings, player: Player | null, marks: Marks): Activity[] {
   const search = s.search.trim().toLowerCase()
   return activities.filter((a) => {
+    const mark = marks[a.key]
+    if (s.favouritesOnly && mark !== 'favourite') return false
+    if (!s.showHidden && mark === 'hidden') return false
     if (a.gp_hr == null ? !s.showUnrated : a.gp_hr <= 0) return false
     if (!s.showIlliquid && !a.liquid) return false
-    if (s.type !== 'all' && a.type !== s.type) return false
+    if (!typeMatches(s.type, a.type)) return false
     if (s.skill !== 'all' && !a.skills.some((k) => k.skill === s.skill)) return false
     if (s.f2pOnly && !a.f2p) return false
     if (a.risk && RISK_ORDER.indexOf(a.risk) > RISK_ORDER.indexOf(s.maxRisk)) return false
