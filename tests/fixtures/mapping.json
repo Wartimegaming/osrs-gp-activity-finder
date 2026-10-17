@@ -1,0 +1,9 @@
+[
+  {"id": 1775, "name": "Molten glass", "members": false, "limit": 13000, "value": 1, "highalch": 0, "lowalch": 0, "examine": "Hot glass ready to be blown.", "icon": "Molten glass.png"},
+  {"id": 567, "name": "Unpowered orb", "members": true, "limit": 13000, "value": 100, "highalch": 60, "lowalch": 40, "examine": "I'd prefer it if it was powered.", "icon": "Unpowered orb.png"},
+  {"id": 436, "name": "Copper ore", "members": false, "limit": 13000, "value": 3, "highalch": 1, "lowalch": 1, "examine": "This needs refining.", "icon": "Copper ore.png"},
+  {"id": 438, "name": "Tin ore", "members": false, "limit": 13000, "value": 3, "highalch": 1, "lowalch": 1, "examine": "This needs refining.", "icon": "Tin ore.png"},
+  {"id": 2349, "name": "Bronze bar", "members": false, "limit": 10000, "value": 8, "highalch": 4, "lowalch": 3, "examine": "It's a bar of bronze.", "icon": "Bronze bar.png"},
+  {"id": 225, "name": "Limpwurt root", "members": true, "limit": 13000, "value": 7, "highalch": 4, "lowalch": 2, "examine": "The root of a limpwurt plant.", "icon": "Limpwurt root.png"},
+  {"id": 2446, "name": "Antipoison(4)", "members": false, "limit": 2000, "value": 360, "highalch": 216, "lowalch": 144, "examine": "4 doses of antipoison potion.", "icon": "Antipoison(4).png"}
+]

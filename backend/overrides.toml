@@ -1,0 +1,18 @@
+# Hand-maintained corrections to wiki recipe data. Loaded on every recipe refresh.
+
+# Recipe item name on the wiki -> exact GE item name, for names that don't match /mapping.
+[aliases]
+# "Wiki name" = "GE name"
+
+# Per-recipe fixes, matched on the wiki page_name_sub (e.g. "Unpowered orb" or
+# "Bronze javelin#Poison"). Applies to every variant on that sub-page.
+#   ticks      = game ticks per action, when the wiki value is missing or wrong
+#   efficiency = share of the hour spent acting, overriding the default (0.85)
+#   exclude    = true to hide the recipe from results
+#   note       = shown next to the result
+#
+# [[recipe]]
+# key = "Unpowered orb"
+# ticks = 3
+# efficiency = 0.9
+# note = "Edgeville bank + furnace"

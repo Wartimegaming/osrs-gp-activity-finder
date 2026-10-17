@@ -49,7 +49,12 @@ All data comes from the OSRS Wiki. Both APIs were verified working on 2026-10-17
 | `/mapping` | Item id ↔ name, **GE buy limit**, high/low alch, members flag | Daily |
 | `/latest` | Last instant-buy (`high`) and instant-sell (`low`) price and timestamp per item | Every 60 s |
 | `/5m`, `/1h` | Average prices and **trade volume** per window, used for liquidity | 5 min / 1 h |
-| `/24h` | Average prices and **daily trade volume** for every item in one call. Main liquidity input | Hourly |
+| `/1h?timestamp=` | A past hour's snapshot, used to backfill a week of history on first run | Once |
+| `/24h` | Daily averages and volume. **Not used:** it is served from a long-lived CDN cache and was ~67 h stale when tested (2026-10-17) | — |
+
+**Daily volume** is computed locally by summing the last 24 stored `/1h` snapshots (the
+`daily_volume` SQL view). Stored snapshots also feed the 7-day volatility in 4.6. Snapshots
+are kept for 30 days.
 | `/timeseries?id=&timestep=` | Price history for one item, used for detail charts | On demand |
 
 **Wiki rules:** every request must send a descriptive `User-Agent` (project name and
@@ -122,7 +127,7 @@ An item that trades once a day is not a real money maker, even with a big margin
 **output** and **every input** must pass a daily-volume check, and the bar drops as unit
 value rises:
 
-| Output sell price | Minimum daily volume (units, from `/24h`) |
+| Output sell price | Minimum daily volume (units, last 24 hourly snapshots) |
 |-------------------|-------------------------------------------|
 | < 10k | 500 |
 | 10k – 100k | 50 |
@@ -216,7 +221,7 @@ Controls:
 ```
 
 **Recommended stack**
-- **Backend:** Python 3.12, FastAPI, httpx, APScheduler (background refresh), SQLite (stdlib
+- **Backend:** Python 3.12+, FastAPI, APScheduler (background refresh), SQLite (stdlib
   or SQLModel). Pydantic models shared by the API and the engine.
 - **Frontend (decided):** React + Vite + TypeScript, TanStack Table (sortable, filterable grid),
   TanStack Query (polling and caching), and Recharts for price charts. During development
@@ -246,7 +251,7 @@ tests/
 | Milestone | Scope | Done when |
 |-----------|-------|-----------|
 | **M0: Spec** | This document | Spec agreed and open questions resolved |
-| **M1: Data layer** | Ingest mapping, latest, 1h, 24h, recipes into SQLite; hourly price snapshots; name→id matching; overrides | `recipes` table populated; unmatched-items report < 5% |
+| **M1: Data layer** | Ingest mapping, latest, hourly snapshots (+ 7-day backfill), recipes into SQLite; name→id matching; overrides | `recipes` table populated; report lists names not on the GE; no near-miss name mismatches (verified: exact names match) |
 | **M2: Engine** | Recipe and high-alch profit model, limits, volume filter, risk model, flags, unit tests | CLI prints top 25 activities by effective GP/hr with risk |
 | **M3: Web UI MVP** | Ranked table, filters, F2P tag, price mode, auto-refresh, hiscores lookup | Usable at `localhost:8000` |
 | **M4: Detail view** | Breakdown, charts, wiki links | Click-through works for every row |
