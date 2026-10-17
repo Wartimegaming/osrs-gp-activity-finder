@@ -10,7 +10,8 @@ import {
 import { useState } from 'react'
 import type { Activity, Mark, Marks, Player } from '../api'
 import { missingLevels, TYPE_LABEL } from '../filters'
-import { age, exact, gp, percent } from '../format'
+import { exact, gp, percent } from '../format'
+import { dailyHint, playTime } from '../daily'
 import { FLAGS } from './flags'
 import ItemIcon from './ItemIcon'
 
@@ -110,9 +111,15 @@ function columns(player: Player | null, marks: Marks, onMark: (key: string, mark
       id: 'roi', header: 'ROI', ...nullsLast, cell: (c) => percent(c.getValue()),
       meta: { numeric: true, hint: 'Profit ÷ input cost, per action' },
     }),
-    col.accessor((a) => num(a.capital_per_hour), {
-      id: 'capital', header: 'Capital/hr', ...nullsLast, cell: (c) => gp(c.getValue()),
-      meta: { numeric: true, hint: 'GP spent on inputs per hour' },
+    col.accessor((a) => num(a.daily_profit), {
+      id: 'daily', header: 'Per day', ...nullsLast,
+      cell: ({ row: { original: a } }) => a.daily_profit == null ? <span className="muted">–</span> : (
+        <span className="buy-sell" title={dailyHint(a)}>
+          <span>{gp(a.daily_profit)}</span>
+          <span className="muted">{a.active_minutes == null ? 'passive' : `${playTime(a.active_minutes)} play`}</span>
+        </span>
+      ),
+      meta: { numeric: true, hint: 'Most this can earn in a day before the market or buy limits run out, and the play time that takes. Sort by this for high-margin, low-volume methods.' },
     }),
     col.accessor((a) => num(a.consistency), {
       id: 'consistency', header: '7-day', ...nullsLast,
@@ -149,10 +156,6 @@ function columns(player: Player | null, marks: Marks, onMark: (key: string, mark
           ))}
         </div>
       ),
-    }),
-    col.accessor((a) => num(a.price_age), {
-      id: 'age', header: 'Price age', sortUndefined: 'last', cell: (c) => age(c.getValue()),
-      meta: { numeric: true, hint: 'Time since the oldest price used last traded' },
     }),
   ]
 }
@@ -192,7 +195,7 @@ export default function ActivityTable({ activities, total, player, selected, onS
   }
 
   return (
-    <section className={`table-card ${updating ? 'updating' : ''}`} aria-busy={updating}>
+    <section className={`table-card methods-table ${updating ? 'updating' : ''}`} aria-busy={updating}>
       <div className="table-scroll">
         <table>
           <thead>

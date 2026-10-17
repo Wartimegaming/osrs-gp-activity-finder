@@ -132,6 +132,26 @@ class RateTest(unittest.TestCase):
         r = evaluate(orb_spec(), market(GLASS, replace(ORB, day_avg_low=180)), S)
         self.assertEqual(r.day_profit, 180 - 3 - 100)
 
+    def test_daily_potential_thin_market(self):
+        # The Belle's folly case: a fast action on a thin input market. 2,400 a day trade, so
+        # 10% is 240 a day, but only 10 an hour, so GP/hr badly undersells the method.
+        r = evaluate(orb_spec(ticks=1), market(replace(GLASS, daily_volume=2_400), ORB), S)
+        self.assertAlmostEqual(r.effective_actions, 10)
+        self.assertAlmostEqual(r.daily_units, 240)
+        self.assertAlmostEqual(r.daily_profit, 240 * 96)
+        self.assertEqual((r.daily_limit.limit, r.daily_limit.item), (Limit.LIQUIDITY, "Molten glass"))
+        self.assertAlmostEqual(r.active_minutes, 240 / r.actions_per_hour * 60)
+
+    def test_daily_buy_limit_is_six_windows(self):
+        r = evaluate(orb_spec(), market(replace(GLASS, buy_limit=400), ORB), S)
+        self.assertAlmostEqual(r.daily_units, 2400)
+        self.assertEqual(r.daily_limit.limit, Limit.BUY_LIMIT)
+
+    def test_daily_is_capped_by_playing_all_day(self):
+        r = evaluate(orb_spec(), market(GLASS, ORB), S)  # huge markets, no limits
+        self.assertAlmostEqual(r.daily_units, r.actions_per_hour * 24)
+        self.assertEqual(r.daily_limit.limit, Limit.SPEED)
+
     def test_capital_per_hour(self):
         r = evaluate(orb_spec(), market(GLASS, ORB), S)
         self.assertAlmostEqual(r.capital_per_hour, 100 * 1800)
@@ -252,6 +272,11 @@ class RankTest(unittest.TestCase):
         # Free orb and Unpowered orb trade 1m a day; Thin orb trades 10.
         self.assertEqual(self.names(include_illiquid=True, min_daily_volume=1000), ["Free orb", "Unpowered orb"])
         self.assertIn("Thin orb", self.names(include_illiquid=True, min_daily_volume=10))
+
+    def test_sort_by_daily(self):
+        for r in self.results:
+            r.daily_profit = {"Unpowered orb": 10, "Free orb": 5}.get(r.spec.name, 0)
+        self.assertEqual(self.names(sort=SortKey.DAILY), ["Unpowered orb", "Free orb"])
 
     def test_search(self):
         self.assertEqual(self.names(search="unpowered"), ["Unpowered orb"])

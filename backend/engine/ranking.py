@@ -14,6 +14,7 @@ from backend.ingest.recipes import Overrides
 class SortKey(StrEnum):
     GP_HR = "gp_hr"
     RISK_ADJUSTED = "risk_adjusted"
+    DAILY = "daily"
 
 
 @dataclass(frozen=True)
@@ -121,5 +122,5 @@ def rank(results: list[Result], filters: Filters = Filters(), sort: SortKey = So
             return False
         return True
 
-    attr = "gp_hr" if sort is SortKey.GP_HR else "gp_hr_risk_adjusted"
-    return sorted(filter(keep, results), key=lambda r: getattr(r, attr), reverse=True)
+    attr = {SortKey.GP_HR: "gp_hr", SortKey.RISK_ADJUSTED: "gp_hr_risk_adjusted", SortKey.DAILY: "daily_profit"}[sort]
+    return sorted(filter(keep, results), key=lambda r: getattr(r, attr) or 0, reverse=True)

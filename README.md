@@ -57,7 +57,7 @@ uv run python -m backend report --unmatched 20
 uv run python -m backend rank              # top 25 by effective GP/hr
 ```
 
-`rank` options: `--mode instant|patient|average`, `--sell-hours 1|4|12|24`, `--sort gp_hr|risk_adjusted`,
+`rank` options: `--mode instant|patient|average`, `--sell-hours 1|4|12|24`, `--sort gp_hr|risk_adjusted|daily`,
 `--type recipe|alch|decant|set|shop|chain|flip` (flips only when asked for), `--min-consistency 0.8`, `--min-volume 10000`, `--f2p`, `--max-risk low|medium|high`, `--include-illiquid`,
 `--search TEXT`, `--top N`.
 

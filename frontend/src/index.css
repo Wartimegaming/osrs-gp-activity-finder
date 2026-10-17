@@ -363,3 +363,8 @@ tr.hidden-row td { opacity: 0.45; }
 .merch-table .flags { max-width: none; flex-wrap: nowrap; }
 .merch-table td:first-child { white-space: normal; }
 .merch-table .activity { min-width: 0; width: 210px; }
+.cap-explain.daily { color: var(--text); }
+
+/* Long subtitles (chains, shops) wrap instead of widening the whole table. */
+.methods-table td:first-child { white-space: normal; }
+.methods-table .activity { min-width: 0; width: 228px; }

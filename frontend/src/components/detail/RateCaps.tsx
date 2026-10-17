@@ -15,16 +15,19 @@ export default function RateCaps({ caps, activity }: { caps: Cap[]; activity: Ac
   const volumeLeg = applying.limit === 'liquidity'
     ? legs.find((l) => l.name === applying.item && l.kind === 'item')
     : undefined
+  // The cap is on buying when the item is a GE-bought input (a flip buys and sells the same item).
+  const buying = activity.type !== 'flip' && activity.inputs.some((l) => l.kind === 'item' && l.name === applying.item)
   return (
     <>
     {volumeLeg && (
       <p className="cap-explain">
-        {volumeLeg.name} trades about {exact(volumeLeg.daily_volume / 24)} per hour on the GE. Sales are capped at{' '}
-        {percent(activity.assumptions.liquidity_share)} of that
+        {volumeLeg.name} trades about {exact(volumeLeg.daily_volume / 24)} per hour on the GE.{' '}
+        {buying ? 'Buying' : 'Selling'} is capped at {percent(activity.assumptions.liquidity_share)} of that
         {applying.window_hours > 1 ? ` over ${applying.window_hours} hours` : ''} ({exact(applying.actions_per_hour)}/hr)
         so your own trading doesn't move the price.
-        {applying.window_hours <= 1 && activity.assumptions.sell_window_hours <= 1 && ' Choose a longer "Sell within" window to spread sales out.'}
-        {applying.window_hours <= 1 && activity.assumptions.sell_window_hours > 1 &&
+        {buying && ' The "Per day" figure shows what buying over a whole day allows.'}
+        {!buying && applying.window_hours <= 1 && activity.assumptions.sell_window_hours <= 1 && ' Choose a longer "Sell within" window to spread sales out.'}
+        {!buying && applying.window_hours <= 1 && activity.assumptions.sell_window_hours > 1 &&
           ' This method isn\'t steady enough to sell over a longer window (it needs to be profitable in 80% of last week\'s hours, with a margin wider than twice its normal price swing).'}
       </p>
     )}

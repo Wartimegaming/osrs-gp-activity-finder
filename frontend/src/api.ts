@@ -81,6 +81,10 @@ export interface Activity {
   median_profit_7d: number | null
   consistency_hours: number | null
   sell_hours: number | null
+  daily_units: number | null
+  daily_profit: number | null
+  daily_limit: { limit: Limit; item: string | null } | null
+  active_minutes: number | null // play time needed for daily_units; null for passive methods
   caps: Cap[]
   assumptions: {
     price_mode: PriceMode

@@ -93,7 +93,7 @@ def cmd_rank(conn, args) -> None:
     )
     results = rank(evaluate_all(conn, settings), filters, SortKey(args.sort))
     header = (f"{'#':>3}  {'Activity':<34} {'Type':<6} {'Skill':<14} {'GP/hr':>7} {'Risk-adj':>8} "
-              f"{'Profit':>7} {'Act/hr':>6} {'Limit':<9} {'Day vol':>7} {'ROI':>6} {'7d':>4} {'Risk':<6} Flags")
+              f"{'Profit':>7} {'Act/hr':>6} {'Limit':<9} {'Per day':>7} {'Day vol':>7} {'ROI':>6} {'7d':>4} {'Risk':<6} Flags")
     print(header)
     print("-" * len(header))
     for i, r in enumerate(results[: args.top], 1):
@@ -102,7 +102,7 @@ def cmd_rank(conn, args) -> None:
         volume = (r.outputs or r.inputs)[0].daily_volume
         print(f"{i:>3}  {name[:34]:<34} {r.spec.type:<6} {skill[:14]:<14} {_gp(r.gp_hr):>7} "
               f"{_gp(r.gp_hr_risk_adjusted):>8} {_gp(r.profit):>7} {r.effective_actions:>6.0f} "
-              f"{r.limiting_factor:<9} {_gp(volume):>7} {r.roi * 100 if r.roi is not None else 0:>5.1f}% "
+              f"{r.limiting_factor:<9} {_gp(r.daily_profit):>7} {_gp(volume):>7} {r.roi * 100 if r.roi is not None else 0:>5.1f}% "
               f"{f'{r.consistency * 100:.0f}%' if r.consistency is not None else '-':>4} "
               f"{r.risk:<6} {','.join(sorted(r.flags)) or '-'}")
     print(f"\n{len(results)} profitable activities ({args.mode} prices). "

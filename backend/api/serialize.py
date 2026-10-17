@@ -87,6 +87,10 @@ def result(r: Result, market: Market, settings: Settings) -> dict:
         "median_profit_7d": r.median_profit_7d,
         "consistency_hours": r.consistency_hours,
         "sell_hours": r.sell_hours,
+        "daily_units": r.daily_units,
+        "daily_profit": r.daily_profit,
+        "daily_limit": None if r.daily_limit is None else {"limit": r.daily_limit.limit, "item": r.daily_limit.item},
+        "active_minutes": r.active_minutes,
         "caps": [{"limit": c.limit, "actions_per_hour": c.actions_per_hour, "item": c.item, "window_hours": c.window_hours}
                  for c in r.caps],
         "assumptions": {

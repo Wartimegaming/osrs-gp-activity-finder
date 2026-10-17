@@ -131,6 +131,11 @@ class Result:
     median_profit_7d: float | None = None
     consistency_hours: int | None = None
     sell_hours: float | None = None  # hours needed to sell one hour's output at the volume share
+    # Daily potential: how many a day the market and buy limits allow, regardless of play time.
+    daily_units: float | None = None
+    daily_profit: float | None = None
+    daily_limit: Cap | None = None  # what sets daily_units
+    active_minutes: float | None = None  # play time needed for daily_units (None for passive methods)
 
     @property
     def ranked(self) -> bool:
@@ -284,6 +289,8 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings, consistency
     if spec.passive:
         result.actions_per_hour = result.effective_actions
 
+    _daily_potential(result, spec, inputs, item_legs, settings)
+
     sell_hours = [
         result.effective_actions * leg.quantity / (settings.liquidity_share * leg.daily_volume / 24)
         for leg in outputs if leg.kind == "item" and leg.daily_volume > 0
@@ -306,6 +313,33 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings, consistency
     if result.volatility and result.breakeven_move is not None and result.gp_hr > 0:
         result.gp_hr_risk_adjusted = result.gp_hr * max(0.0, min(1.0, result.breakeven_move / result.volatility))
     return result
+
+
+def _daily_potential(result: Result, spec: ActivitySpec, inputs: list[PricedLeg],
+                     item_legs: list[PricedLeg], settings: Settings) -> None:
+    """How many a day the GE allows: 10% of each item's daily volume and six buy-limit windows.
+
+    GP/hr asks "what does an hour of play earn?". For thin, high-margin items the real limit is
+    supply per day, which an hour of play can't show (e.g. buy all day, process in minutes).
+    """
+    caps = []
+    for leg in inputs:
+        if leg.kind == "item" and leg.buy_limit and leg.quantity > 0:
+            caps.append(Cap(Limit.BUY_LIMIT, leg.buy_limit * (24 / BUY_LIMIT_WINDOW_HOURS) / leg.quantity, leg.name))
+    seen: set[int] = set()
+    for leg in item_legs:
+        if leg.quantity > 0 and leg.item_id not in seen:
+            seen.add(leg.item_id)
+            caps.append(Cap(Limit.LIQUIDITY, settings.liquidity_share * leg.daily_volume / leg.quantity, leg.name))
+    if not spec.passive and result.actions_per_hour:
+        caps.append(Cap(Limit.SPEED, result.actions_per_hour * 24))
+    if not caps:
+        return
+    result.daily_limit = min(caps, key=lambda cap: cap.actions_per_hour)
+    result.daily_units = result.daily_limit.actions_per_hour
+    result.daily_profit = result.profit * result.daily_units
+    if not spec.passive and result.actions_per_hour:
+        result.active_minutes = result.daily_units / result.actions_per_hour * 60
 
 
 def _sell_window(spec: ActivitySpec, outputs: list[PricedLeg], market: Market, settings: Settings,

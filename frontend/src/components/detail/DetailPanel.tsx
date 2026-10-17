@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { fetchHistory, type Activity, type Leg, type Mark, type Player } from '../../api'
 import { missingLevels, TYPE_LABEL } from '../../filters'
+import { dailyHint, playTime } from '../../daily'
 import { StarButton } from '../ActivityTable'
 import { age, exact, gp, percent } from '../../format'
 import { FLAGS } from '../flags'
@@ -114,6 +115,7 @@ export default function DetailPanel({ activity: a, missing, player, onClose, mar
               <Stat label="Risk-adj GP/hr" value={gp(a.gp_hr_risk_adjusted)} hint="GP/hr scaled down when normal price swings could wipe out the margin" />
               <Stat label="Profit per action" value={gp(a.profit)} />
               <Stat label="Actions/hr" value={exact(a.effective_actions)} />
+              <Stat label="Per day" value={gp(a.daily_profit)} hint={dailyHint(a)} />
               <Stat label="ROI" value={percent(a.roi)} hint="Profit ÷ input cost" />
               <Stat label="Capital/hr" value={gp(a.capital_per_hour)} hint="GP spent on inputs per hour" />
               <Stat label="Profitable hours (7d)" value={a.consistency == null ? '–' : percent(a.consistency)}
@@ -174,6 +176,13 @@ export default function DetailPanel({ activity: a, missing, player, onClose, mar
 
             <section className="detail-section">
               <h3>What limits the rate</h3>
+              {a.daily_profit != null && a.daily_units != null && (
+                <p className="cap-explain daily">
+                  <b>Per day:</b> {dailyHint(a)}, for about <b>{gp(a.daily_profit)}</b>.
+                  {a.active_minutes != null && a.active_minutes < 60 && a.gp_hr != null && a.daily_profit > a.gp_hr * 2 &&
+                    ` The market, not your time, is the limit here: buy over the day, then process everything in ${playTime(a.active_minutes)}.`}
+                </p>
+              )}
               {a.caps.length ? <RateCaps caps={a.caps} activity={a} /> : (
                 <p className="muted">No rate: {a.assumptions.override_key
                   ? <>add <code>actions_per_hour</code> for <code>{a.assumptions.override_key}</code> in <code>backend/overrides.toml</code>.</>

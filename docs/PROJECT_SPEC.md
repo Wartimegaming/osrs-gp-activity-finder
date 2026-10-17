@@ -167,6 +167,13 @@ GP/hour is limited by whichever of these is smallest:
 
 There is no bankroll cap. Capital is used as a **risk** measure instead (Section 4.6).
 
+**Daily potential.** GP/hr answers "what does an hour of play earn?", which undersells fast
+actions on thin markets: polishing Belle's folly takes seconds, but only ~40 tarnished ones trade
+an hour, so GP/hr caps it at 4/hr. Every method also gets a **per-day** figure: the units a day the
+GE allows (10% of each item's daily volume, six buy-limit windows, or playing all day, whichever
+is lowest) × profit, and the **play time** that takes. "Buy over the day, process in 3 minutes"
+methods surface by sorting on it.
+
 **Selling over time.** The "Sell within" setting (1, 4, 12 or 24 hours; default 1) lets one hour
 of output be sold across that window, so the selling cap becomes 10% of hourly volume × the
 window. It only applies when waiting is safe: the method was profitable in at least 80% of last
@@ -272,9 +279,10 @@ starred methods.
 ## 5. Web UI (localhost)
 
 ### 5.1 Main table: ranked activities
-Columns: Activity · Type · Skill/Level · **F2P tag** · Profit per action · Actions/hr ·
-**Effective GP/hr** · Risk-adjusted GP/hr · Limiting factor (buy limit / liquidity / speed) ·
-Daily volume · ROI · Capital per hour · **Risk badge** · Flags · Price age.
+Columns: Activity (with type, F2P tag and subtitle) · Requires · **Effective GP/hr** ·
+Risk-adjusted GP/hr · Profit per action · Actions/hr · Limited by · Daily volume · ROI ·
+**Per day** (with play time) · 7-day consistency · **Risk badge** · Flags. Capital per hour and
+price age are in the detail view.
 
 Controls:
 - Search
