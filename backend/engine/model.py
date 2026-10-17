@@ -41,7 +41,10 @@ class Leg:
     name: str
     item_id: int | None
     quantity: float
-    kind: str = "item"  # item | coins
+    kind: str = "item"  # item | coins | shop (bought from an NPC shop at fixed_price)
+    fixed_price: float | None = None  # per unit, for shop purchases
+    source: str | None = None  # the shop it's bought from
+    stock: int | None = None  # the shop's stock per world; None = unlimited
 
 
 @dataclass(frozen=True)
@@ -79,6 +82,8 @@ class PricedLeg:
     daily_volume: int
     min_daily_volume: int
     buy_limit: int | None = None
+    source: str | None = None
+    stock: int | None = None
 
     @property
     def total(self) -> float | None:
@@ -170,6 +175,12 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
         if leg.kind == "coins":
             day_cost += leg.quantity
             return PricedLeg(leg.name, None, leg.quantity, "coins", 1.0, 0, 0)
+        if leg.kind == "shop":  # NPC price: no GE buy limit, volume or staleness applies
+            day_cost += leg.fixed_price * leg.quantity
+            if (shop_item := market.get(leg.item_id)) is not None:
+                item_members.append(shop_item.members)
+            return PricedLeg(leg.name, leg.item_id, leg.quantity, "shop", leg.fixed_price, 0, 0,
+                             source=leg.source, stock=leg.stock)
         item = market.get(leg.item_id)
         if item is None:
             return PricedLeg(leg.name, leg.item_id, leg.quantity, leg.kind, None, 0, 0)
@@ -211,7 +222,8 @@ def evaluate(spec: ActivitySpec, market: Market, settings: Settings) -> Result:
     result.profit = result.gross_revenue - result.tax - result.input_cost
     if result.input_cost > 0:
         result.roi = result.profit / result.input_cost
-        if result.roi > settings.implausible_roi:
+        # Shop prices are set by NPCs, so huge returns there are genuine.
+        if result.roi > settings.implausible_roi and spec.type != "shop":
             result.flags.add(Flag.IMPLAUSIBLE)
     if result.gross_revenue > 0:
         result.breakeven_move = result.profit / result.gross_revenue

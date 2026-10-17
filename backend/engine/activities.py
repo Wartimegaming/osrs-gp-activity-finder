@@ -236,13 +236,19 @@ def shop_specs(conn: sqlite3.Connection, market: Market, settings: Settings,
         stackable = inventory.is_stackable(item.name, overrides.stackable_add, overrides.stackable_remove)
         hops = row["stock"] is not None  # a limited stock means hopping worlds to buy more
         if stackable:
+            # Stacks: no banking; buy the visit's worth, hop, repeat.
             per_cycle = units
             cycle_ticks = (settings.shop_hop_ticks if hops else 0) + math.ceil(units / settings.shop_buy_per_tick)
-            how = f"Buy {units} per world" if hops else f"Buy in batches of {units}"
+            how = f"Buy {units} per world, then hop" if hops else f"Buy in batches of {units}"
         else:
-            per_cycle = min(units, inventory.INVENTORY_SLOTS - 1)  # one slot for coins
-            cycle_ticks = settings.shop_bank_ticks + (settings.shop_hop_ticks if hops else 0)
-            how = f"Buy {per_cycle} per inventory" + (", hopping worlds each trip" if hops else "")
+            # Fill the inventory (one slot for coins), hopping worlds as each world's stock runs out,
+            # then make one bank trip.
+            space = inventory.INVENTORY_SLOTS - 1
+            visits = math.ceil(space / units) if hops and units < space else 1
+            per_cycle = min(space, units * visits)
+            cycle_ticks = settings.shop_bank_ticks + (visits * settings.shop_hop_ticks if hops else 0)
+            how = (f"Buy {units} per world across {visits} worlds to fill an inventory, then bank" if visits > 1
+                   else f"Buy {per_cycle} per inventory, then bank" + (" and hop" if hops else ""))
         rate = TICKS_PER_HOUR * per_cycle / max(1, cycle_ticks) * settings.efficiency
         specs.append(ActivitySpec(
             key=f"shop:{row['shop']}:{item.id}",
@@ -250,7 +256,7 @@ def shop_specs(conn: sqlite3.Connection, market: Market, settings: Settings,
             name=item.name,
             variant=row["shop"],
             wiki_page=row["shop"],
-            inputs=(Leg("Coins", None, avg_cost, "coins"),),
+            inputs=(Leg(item.name, item.id, 1, "shop", fixed_price=avg_cost, source=row["shop"], stock=row["stock"]),),
             outputs=(Leg(item.name, item.id, 1),),
             fixed_rate=rate,
             ticks_estimated=True,

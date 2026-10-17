@@ -28,7 +28,10 @@ function ItemCell({ leg }: { leg: Leg }) {
   return (
     <span className="item-cell">
       <ItemIcon key={leg.icon} src={leg.icon} size={20} />
-      {leg.name}
+      <span>
+        {leg.name}
+        {leg.source && <span className="item-source">from {leg.source} (shop price)</span>}
+      </span>
     </span>
   )
 }
@@ -113,7 +116,7 @@ export default function DetailPanel({ activity: a, missing, player, onClose, mar
               <Stat label="Actions/hr" value={exact(a.effective_actions)} />
               <Stat label="ROI" value={percent(a.roi)} hint="Profit ÷ input cost" />
               <Stat label="Capital/hr" value={gp(a.capital_per_hour)} hint="GP spent on inputs per hour" />
-              <Stat label="Profitable, last 7 days" value={a.consistency == null ? '–' : `${percent(a.consistency)} of hours`}
+              <Stat label="Profitable hours (7d)" value={a.consistency == null ? '–' : percent(a.consistency)}
                 hint={a.consistency_hours ? `${a.consistency_hours} hours with prices; median profit ${gp(a.median_profit_7d)} each` : 'Not enough price history yet'} />
             </section>
 
@@ -133,9 +136,13 @@ export default function DetailPanel({ activity: a, missing, player, onClose, mar
                       <td className="num">{exact(leg.price)}</td>
                       <td className="num">−{exact((leg.price ?? 0) * leg.quantity)}</td>
                       <td className={`num ${leg.kind === 'item' && leg.daily_volume < leg.min_daily_volume ? 'bad-text' : ''}`}>
-                        {leg.kind === 'coins' ? '–' : gp(leg.daily_volume)}
+                        {leg.kind === 'item' ? gp(leg.daily_volume) : '–'}
                       </td>
-                      <td className="num">{leg.buy_limit ? exact(leg.buy_limit) : '–'}</td>
+                      <td className="num" title={leg.kind === 'shop' ? 'Shop stock per world; GE buy limits don\'t apply' : undefined}>
+                        {leg.kind === 'shop'
+                          ? (leg.stock == null ? 'Unlimited stock' : `${exact(leg.stock)} per world`)
+                          : leg.buy_limit ? exact(leg.buy_limit) : '–'}
+                      </td>
                     </tr>
                   ))}
                   <tr className="group"><td colSpan={6}>Sell</td></tr>
@@ -167,7 +174,7 @@ export default function DetailPanel({ activity: a, missing, player, onClose, mar
 
             <section className="detail-section">
               <h3>What limits the rate</h3>
-              {a.caps.length ? <RateCaps caps={a.caps} /> : (
+              {a.caps.length ? <RateCaps caps={a.caps} activity={a} /> : (
                 <p className="muted">No rate: {a.assumptions.override_key
                   ? <>add <code>actions_per_hour</code> for <code>{a.assumptions.override_key}</code> in <code>backend/overrides.toml</code>.</>
                   : 'the speed of this method is unknown.'}</p>

@@ -53,6 +53,9 @@ def score(spec: ActivitySpec, series: Series, settings: Settings) -> Consistency
             if leg.kind == "coins":
                 total -= leg.quantity
                 continue
+            if leg.kind == "shop":
+                total -= leg.fixed_price * leg.quantity
+                continue
             high, low = series[leg.item_id][ts]
             price = high if buy_high else low
             if price is None:

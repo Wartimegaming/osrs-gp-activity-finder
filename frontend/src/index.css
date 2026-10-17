@@ -316,3 +316,5 @@ tr.hidden-row td { opacity: 0.45; }
 .consistency.good { color: var(--good); }
 .consistency.warn { color: var(--warn); }
 .consistency.bad { color: var(--bad); }
+.item-source { display: block; font-size: 12px; color: var(--muted); }
+.cap-explain { margin: 0 0 12px; font-size: 13px; color: var(--muted); }

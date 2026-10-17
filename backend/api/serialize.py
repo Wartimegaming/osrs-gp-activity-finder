@@ -33,6 +33,8 @@ def _leg(leg: PricedLeg, market: Market) -> dict:
         "daily_volume": leg.daily_volume,
         "min_daily_volume": leg.min_daily_volume,
         "buy_limit": leg.buy_limit,
+        "source": leg.source,
+        "stock": leg.stock,
         "icon": icon_url(item),
         "day_avg_high": item.day_avg_high if item else None,
         "day_avg_low": item.day_avg_low if item else None,

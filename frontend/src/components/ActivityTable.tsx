@@ -55,6 +55,7 @@ function columns(player: Player | null, marks: Marks, onMark: (key: string, mark
             <div className="activity-sub">
               {a.type === 'recipe' ? a.variant ?? a.facilities ?? 'Processing'
                 : a.type === 'alch' || a.type === 'flip' ? TYPE_LABEL[a.type]
+                : a.type === 'shop' ? `Shop · ${a.variant} · ${gp(a.input_cost)} gp each`
                 : `${TYPE_LABEL[a.type]} · ${a.variant}`}
             </div>
           </div>

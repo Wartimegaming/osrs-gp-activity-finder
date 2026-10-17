@@ -83,10 +83,30 @@ class ShopModelTest(unittest.TestCase):
         specs = {s.key: s for s in activities.shop_specs(self.conn, self.market, S, Overrides())}
         self.assertNotIn("shop:Mixology Rewards:2", specs)  # reward shops are paid in points
         rune = specs["shop:Rune shop:1"]
-        self.assertEqual((rune.type, rune.inputs[0].kind, rune.ticks_estimated, rune.members), ("shop", "coins", True, False))
+        self.assertEqual((rune.type, rune.inputs[0].kind, rune.ticks_estimated, rune.members), ("shop", "shop", True, False))
+        self.assertEqual((rune.inputs[0].source, rune.inputs[0].stock, rune.inputs[0].item_id), ("Rune shop", 250, 1))
         shark = specs["shop:Fish shop:2"]
-        # Sharks don't stack: 10 per visit (the stock), then bank and hop.
-        self.assertAlmostEqual(shark.fixed_rate, 6000 * 10 / (S.shop_bank_ticks + S.shop_hop_ticks) * S.efficiency)
+        # Sharks don't stack and the shop holds 10: hop 3 worlds to fill 27 slots, then bank once.
+        self.assertAlmostEqual(shark.fixed_rate, 6000 * 27 / (S.shop_bank_ticks + 3 * S.shop_hop_ticks) * S.efficiency)
+
+    def test_small_stock_hops_until_inventory_is_full(self):
+        self.conn.execute("UPDATE shop_items SET stock = 3 WHERE shop = 'Fish shop'")
+        shark = {s.key: s for s in activities.shop_specs(self.conn, self.market, S, Overrides())}["shop:Fish shop:2"]
+        self.assertAlmostEqual(shark.fixed_rate, 6000 * 27 / (S.shop_bank_ticks + 9 * S.shop_hop_ticks) * S.efficiency)
+        self.assertIn("across 9 worlds", shark.note)
+
+    def test_shop_price_in_profit(self):
+        spec = {s.key: s for s in activities.shop_specs(self.conn, self.market, S, Overrides())}["shop:Fish shop:2"]
+        r = evaluate(spec, self.market, S)
+        self.assertEqual(r.inputs[0].kind, "shop")
+        self.assertEqual(r.input_cost, spec.inputs[0].fixed_price)
+        self.assertEqual(r.profit, 880 - 17 - spec.inputs[0].fixed_price)
+        self.assertNotIn("buy_limit", {c.limit.value for c in r.caps})  # GE buy limits don't apply to shops
+
+    def test_cheap_shop_items_are_not_flagged_implausible(self):
+        spec = {s.key: s for s in activities.shop_specs(self.conn, self.market, S, Overrides())}["shop:Fish shop:2"]
+        cheap = replace(spec, inputs=(replace(spec.inputs[0], fixed_price=1),))
+        self.assertNotIn(Flag.IMPLAUSIBLE, evaluate(cheap, self.market, S).flags)
 
     def test_excluded_shop(self):
         specs = activities.shop_specs(self.conn, self.market, S, Overrides(shop_exclude={"Fish shop"}))
@@ -98,6 +118,15 @@ class ShopModelTest(unittest.TestCase):
         runes = [r for r in kept if r.spec.outputs[0].item_id == 1]
         # One F2P listing and one members listing survive; they aren't merged.
         self.assertEqual(sorted(r.spec.variant for r in runes), ["Other rune shop", "Rune shop"])
+
+    def test_ties_prefer_the_faster_shop(self):
+        slow = evaluate(activities.shop_specs(self.conn, self.market, S, Overrides())[0], self.market, S)
+        fast = evaluate(replace(slow.spec, key="fast", variant="Fast shop."), self.market, S)
+        slow.gp_hr = fast.gp_hr = 1000
+        slow.actions_per_hour, fast.actions_per_hour = 100, 300
+        kept = _best_shop_per_item([slow, fast])
+        self.assertEqual(kept[0].spec.variant, "Fast shop.")
+        self.assertTrue(kept[0].spec.note.endswith("Also sold at 1 other shop: Rune shop."))
 
 
 class ChainTest(unittest.TestCase):

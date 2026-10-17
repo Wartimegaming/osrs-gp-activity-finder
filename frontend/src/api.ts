@@ -16,7 +16,7 @@ export type Flag =
 export interface Leg {
   name: string
   item_id: number | null
-  kind: 'item' | 'coins'
+  kind: 'item' | 'coins' | 'shop'
   quantity: number
   price: number | null
   daily_volume: number
@@ -25,6 +25,8 @@ export interface Leg {
   icon: string | null
   day_avg_high: number | null
   day_avg_low: number | null
+  source: string | null // shop name, for items bought from an NPC shop
+  stock: number | null // that shop's stock per world; null = unlimited
 }
 
 export type Limit = 'speed' | 'buy_limit' | 'liquidity'

@@ -77,11 +77,14 @@ def _best_shop_per_item(results: list[Result]) -> list[Result]:
         else:
             others.append(r)
     for group in shops.values():
-        group.sort(key=lambda r: r.gp_hr or 0, reverse=True)
+        # When volume caps make shops tie on GP/hr, prefer the one that's quickest to buy from.
+        group.sort(key=lambda r: (r.gp_hr or 0, r.actions_per_hour or 0), reverse=True)
         best = group[0]
         if len(group) > 1:
-            also = ", ".join(r.spec.variant for r in group[1:4]) + (" …" if len(group) > 4 else "")
-            best.spec = replace(best.spec, note=f"{best.spec.note} Also sold at {len(group) - 1} other shops: {also}.")
+            count = len(group) - 1
+            names = ", ".join(r.spec.variant.rstrip(".") for r in group[1:4]) + (" …" if len(group) > 4 else "")
+            label = "other shop" if count == 1 else "other shops"
+            best.spec = replace(best.spec, note=f"{best.spec.note} Also sold at {count} {label}: {names}.")
         others.append(best)
     return others
 
